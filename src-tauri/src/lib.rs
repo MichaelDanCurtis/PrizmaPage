@@ -2,6 +2,7 @@ pub mod capability;
 pub mod manifest;
 pub mod package;
 pub mod policy;
+pub mod provider;
 pub mod secret;
 pub mod state;
 
