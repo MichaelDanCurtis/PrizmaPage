@@ -48,4 +48,35 @@ describe("ai client", () => {
       messages: [["user", "Hello"]],
     });
   });
+
+  it("starts oauth and surfaces user instructions", async () => {
+    const invoke = vi
+      .fn()
+      .mockResolvedValue({ user_code: "ABCD", verification_uri: "https://github.com/login/device" });
+    vi.doMock("@tauri-apps/api/core", () => ({ invoke }));
+    const { startOAuth } = await import("./ai");
+    const i = await startOAuth("copilot");
+    expect(i.user_code).toBe("ABCD");
+    expect(invoke).toHaveBeenCalledWith("ai_start_oauth", { provider: "copilot" });
+  });
+
+  it("polls oauth status", async () => {
+    const invoke = vi.fn().mockResolvedValue("pending");
+    vi.doMock("@tauri-apps/api/core", () => ({ invoke }));
+    const { pollOAuth } = await import("./ai");
+    const status = await pollOAuth("codex");
+    expect(status).toBe("pending");
+    expect(invoke).toHaveBeenCalledWith("ai_poll_oauth", { provider: "codex" });
+  });
+
+  it("sets the acp agent binary", async () => {
+    const invoke = vi.fn().mockResolvedValue(undefined);
+    vi.doMock("@tauri-apps/api/core", () => ({ invoke }));
+    const { setAcpBinary } = await import("./ai");
+    await setAcpBinary("/usr/local/bin/claude", ["--acp"]);
+    expect(invoke).toHaveBeenCalledWith("ai_set_acp_binary", {
+      binary: "/usr/local/bin/claude",
+      args: ["--acp"],
+    });
+  });
 });
