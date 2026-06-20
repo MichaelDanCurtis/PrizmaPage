@@ -30,9 +30,13 @@ impl AcpProvider {
         }
     }
 
-    /// Default Claude Code config: spawn `claude` in ACP mode.
+    /// Default Claude Code config: spawn the `claude-agent-acp` adapter.
+    /// (Claude Code itself does not expose ACP via a CLI flag; the official
+    /// `@agentclientprotocol/claude-agent-acp` npm package wraps the Claude
+    /// Agent SDK and speaks ACP over stdio. Install with
+    /// `npm i -g @agentclientprotocol/claude-agent-acp`.)
     pub fn claude_code() -> Self {
-        Self::new("claude", "claude", &["--acp"])
+        Self::new("claude", "claude-agent-acp", &[])
     }
 
     /// Update the binary to spawn (used by ai_set_acp_binary).

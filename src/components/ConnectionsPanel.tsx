@@ -5,6 +5,7 @@ import {
   setApiKey,
   clearApiKey,
   runOAuthFlow,
+  runCodexPkceFlow,
   setAcpBinary,
   type OAuthInstructions,
 } from "../lib/ai";
@@ -13,7 +14,8 @@ interface Props {
   onProvidersLoaded?: (providers: string[]) => void;
 }
 
-const OAUTH_PROVIDERS = new Set(["copilot", "codex"]);
+const OAUTH_PROVIDERS = new Set(["copilot"]); // device flow
+const PKCE_PROVIDERS = new Set(["codex"]); // auth-code + PKCE
 const ACP_PROVIDERS = new Set(["claude"]);
 
 /**
@@ -31,8 +33,8 @@ export function ConnectionsPanel({ onProvidersLoaded }: Props) {
   const [draftKey, setDraftKey] = useState<Record<string, string>>({});
   const [oauthInstructions, setOauthInstructions] = useState<OAuthInstructions | null>(null);
   const [oauthBusy, setOauthBusy] = useState<string | null>(null);
-  const [acpBinary, setAcpBinaryState] = useState("claude");
-  const [acpArgs, setAcpArgs] = useState("--acp");
+  const [acpBinary, setAcpBinaryState] = useState("claude-agent-acp");
+  const [acpArgs, setAcpArgs] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -97,6 +99,30 @@ export function ConnectionsPanel({ onProvidersLoaded }: Props) {
     }
   }
 
+  async function connectCodexPkce() {
+    try {
+      setError(null);
+      setOauthInstructions(null);
+      setOauthBusy("codex");
+      await runCodexPkceFlow((url) => {
+        // Surface the auth URL the way the OAuth panel surfaces a code.
+        setOauthInstructions({
+          user_code: "(browser opens automatically)",
+          verification_uri: url,
+        });
+        // Best-effort: open the URL in the user's default browser.
+        window.open(url, "_blank");
+      });
+      setOauthInstructions(null);
+      setOauthBusy(null);
+      setMessage("codex connected.");
+      await refresh();
+    } catch (e) {
+      setOauthBusy(null);
+      setError(String(e));
+    }
+  }
+
   async function saveAcp() {
     try {
       setError(null);
@@ -150,7 +176,7 @@ export function ConnectionsPanel({ onProvidersLoaded }: Props) {
               </div>
             )}
 
-            {/* OAuth shape */}
+            {/* OAuth device-flow shape (Copilot) */}
             {OAUTH_PROVIDERS.has(p) && (
               <div style={{ marginTop: 4 }}>
                 <button
@@ -158,7 +184,25 @@ export function ConnectionsPanel({ onProvidersLoaded }: Props) {
                   disabled={oauthBusy !== null}
                   data-testid={`oauth-${p}`}
                 >
-                  {oauthBusy === p ? "Waiting for authorization…" : `Connect ${p} via OAuth`}
+                  {oauthBusy === p ? "Waiting for authorization…" : `Connect ${p} via device flow`}
+                </button>
+                {configured[p] && (
+                  <button onClick={() => clear(p)} style={{ marginLeft: 8 }}>
+                    Disconnect
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* PKCE auth-code shape (Codex) */}
+            {PKCE_PROVIDERS.has(p) && (
+              <div style={{ marginTop: 4 }}>
+                <button
+                  onClick={() => connectCodexPkce()}
+                  disabled={oauthBusy !== null}
+                  data-testid={`pkce-${p}`}
+                >
+                  {oauthBusy === p ? "Waiting for browser authorization…" : `Connect ${p} via browser (PKCE)`}
                 </button>
                 {configured[p] && (
                   <button onClick={() => clear(p)} style={{ marginLeft: 8 }}>

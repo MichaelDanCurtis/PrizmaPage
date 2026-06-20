@@ -5,6 +5,7 @@ pub mod manifest;
 pub mod oauth;
 pub mod oauth_providers;
 pub mod package;
+pub mod pkce;
 pub mod policy;
 pub mod provider;
 pub mod registry;
@@ -133,9 +134,9 @@ async fn ai_complete(
     .map_err(|e| e.to_string())
 }
 
-/// Step 1 of OAuth device flow: request a device code for the named provider
-/// (copilot or codex). Returns the user-facing code + verification URL to
-/// display; stores the device_code in pending_oauth for ai_poll_oauth.
+/// Step 1 of OAuth device flow: request a device code for the named provider.
+/// Only `copilot` supports device flow (GitHub). Codex uses PKCE — see
+/// ai_start_codex_pkce.
 #[tauri::command]
 async fn ai_start_oauth(
     state: State<'_, AppState>,
@@ -143,8 +144,9 @@ async fn ai_start_oauth(
 ) -> Result<crate::oauth::UserAuthInstructions, String> {
     let config = match provider.as_str() {
         "copilot" => crate::oauth_providers::copilot_config(),
-        "codex" => crate::oauth_providers::codex_config(),
-        other => return Err(format!("provider '{other}' does not support OAuth")),
+        other => return Err(format!(
+            "provider '{other}' does not support device flow (codex uses PKCE — call ai_start_codex_pkce)"
+        )),
     };
     let client = crate::oauth::DeviceFlowClient::new(config);
     let (device_code, instructions) = client.request_device_code().await.map_err(|e| e.to_string())?;
@@ -170,8 +172,9 @@ async fn ai_poll_oauth(state: State<'_, AppState>, provider: String) -> Result<S
 
     let config = match provider.as_str() {
         "copilot" => crate::oauth_providers::copilot_config(),
-        "codex" => crate::oauth_providers::codex_config(),
-        other => return Err(format!("provider '{other}' does not support OAuth")),
+        other => return Err(format!(
+            "provider '{other}' does not support device flow polling"
+        )),
     };
     let client = crate::oauth::DeviceFlowClient::new(config);
 
@@ -186,6 +189,44 @@ async fn ai_poll_oauth(state: State<'_, AppState>, provider: String) -> Result<S
         Err(crate::oauth::OAuthError::Expired) => Err("device code expired".into()),
         Err(e) => Err(e.to_string()),
     }
+}
+
+/// Codex PKCE: returns the authorization URL the UI should open in a browser.
+/// The UI then calls ai_await_codex_callback to block on the redirect.
+#[tauri::command]
+async fn ai_start_codex_pkce(
+    state: State<'_, AppState>,
+) -> Result<crate::pkce::AuthorizationRequest, String> {
+    let config = crate::oauth_providers::codex_pkce_config();
+    let pair = crate::pkce::PkcePair::generate();
+    let client = crate::pkce::PkceClient::new(config);
+    let auth_req = client.build_authorization_url(&pair);
+    state
+        .pending_pkce
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert("codex".to_string(), (pair, auth_req.state.clone()));
+    Ok(auth_req)
+}
+
+/// Codex PKCE: block on the localhost callback + exchange the code for a token.
+/// Stores the token on success.
+#[tauri::command]
+async fn ai_await_codex_callback(state: State<'_, AppState>) -> Result<(), String> {
+    let (pair, expected_state) = {
+        let g = state.pending_pkce.lock().map_err(|e| e.to_string())?;
+        g.get("codex")
+            .map(|(p, s)| (p.clone(), s.clone()))
+            .ok_or_else(|| "no pending Codex PKCE flow".to_string())?
+    };
+    let config = crate::oauth_providers::codex_pkce_config();
+    let client = crate::pkce::PkceClient::new(config);
+    client
+        .await_callback_and_exchange(&pair, &expected_state, 300, state.secrets.as_ref())
+        .await
+        .map_err(|e| e.to_string())?;
+    state.pending_pkce.lock().map_err(|e| e.to_string())?.remove("codex");
+    Ok(())
 }
 
 /// Configure the ACP agent binary (default: `claude --acp`). Lets the user
@@ -212,6 +253,8 @@ pub fn run() {
             ai_complete,
             ai_start_oauth,
             ai_poll_oauth,
+            ai_start_codex_pkce,
+            ai_await_codex_callback,
             ai_set_acp_binary
         ])
         .run(tauri::generate_context!())

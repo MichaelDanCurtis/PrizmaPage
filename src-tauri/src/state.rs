@@ -1,4 +1,5 @@
 use crate::acp_provider::AcpProvider;
+use crate::pkce::PkcePair;
 use crate::policy::PolicyEngine;
 use crate::registry::Registry;
 use crate::secret::{KeyringSecretStore, SecretStore};
@@ -13,6 +14,8 @@ use std::sync::Mutex;
 /// - `providers`: registry of configured AI providers.
 /// - `pending_oauth`: in-flight device codes keyed by provider name, held
 ///   between the ai_start_oauth and ai_poll_oauth calls.
+/// - `pending_pkce`: in-flight PKCE pairs + expected state for Codex, held
+///   between ai_start_codex_pkce and ai_await_codex_callback.
 /// - `acp_provider`: handle to the ACP-backed provider (registered as `claude`
 ///   in the registry) so ai_set_acp_binary can reconfigure it directly.
 pub struct AppState {
@@ -20,6 +23,7 @@ pub struct AppState {
     pub secrets: Arc<dyn SecretStore>,
     pub providers: Registry,
     pub pending_oauth: Mutex<HashMap<String, crate::oauth::DeviceCode>>,
+    pub pending_pkce: Mutex<HashMap<String, (PkcePair, String)>>,
     pub acp_provider: Arc<AcpProvider>,
 }
 
@@ -31,6 +35,7 @@ impl AppState {
             secrets: Arc::new(KeyringSecretStore::new("com.prizmapage.app")),
             providers: Registry::with_acp(acp.clone()),
             pending_oauth: Mutex::new(HashMap::new()),
+            pending_pkce: Mutex::new(HashMap::new()),
             acp_provider: acp,
         }
     }

@@ -7,6 +7,7 @@
 //! SecretStore under the provider's name).
 
 use crate::oauth::OAuthConfig;
+use crate::pkce::PkceConfig;
 use crate::provider::{CompletionRequest, CompletionResponse, OpenAiCompatibleProvider, Provider, ProviderError};
 use crate::secret::SecretStore;
 use async_trait::async_trait;
@@ -24,16 +25,20 @@ pub fn copilot_config() -> OAuthConfig {
     }
 }
 
-/// OpenAI Codex device-flow config.
-/// Codex uses OpenAI's own device-flow endpoints. (Live verification against
-/// these requires a registered OpenAI OAuth app — see docs/verification.md.)
-pub fn codex_config() -> OAuthConfig {
-    OAuthConfig {
+/// OpenAI Codex PKCE config.
+/// Codex does NOT support device flow — it uses authorization-code + PKCE
+/// against OpenAI's ChatGPT OAuth surface. (Live verification requires a
+/// registered Codex/ChatGPT OAuth app; the endpoints below are the public
+/// authorization surface — bring your own client_id from OpenAI.)
+pub fn codex_pkce_config() -> PkceConfig {
+    PkceConfig {
         provider: "codex".into(),
-        client_id: "pdv_openai_codex".into(),
-        device_authorization_endpoint: "https://auth.openai.com/oauth/device/code".into(),
+        // Replace with your own Codex OAuth app's client_id from OpenAI.
+        client_id: "app_EMOaOpenAICodexCli".into(),
+        authorization_endpoint: "https://auth.openai.com/oauth/authorize".into(),
         token_endpoint: "https://auth.openai.com/oauth/token".into(),
-        scopes: vec!["openai.ignore".into()],
+        redirect_port: 1455,
+        scopes: vec!["openid".into(), "profile".into(), "email".into(), "offline_access".into()],
     }
 }
 
@@ -100,10 +105,12 @@ mod tests {
     }
 
     #[test]
-    fn codex_config_targets_openai_auth() {
-        let cfg = codex_config();
+    fn codex_config_targets_openai_pkce_auth() {
+        let cfg = codex_pkce_config();
         assert_eq!(cfg.provider, "codex");
-        assert!(cfg.token_endpoint.starts_with("https://auth.openai.com"));
+        assert_eq!(cfg.authorization_endpoint, "https://auth.openai.com/oauth/authorize");
+        assert_eq!(cfg.token_endpoint, "https://auth.openai.com/oauth/token");
+        assert!(cfg.scopes.contains(&"openid".into()));
     }
 
     #[test]

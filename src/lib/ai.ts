@@ -67,10 +67,40 @@ export async function runOAuthFlow(
   throw new Error("OAuth timed out waiting for user authorization");
 }
 
+// ===== Codex PKCE (auth-code + PKCE, not device flow) =====
+
+export interface PkceAuthRequest {
+  url: string;
+  state: string;
+}
+
+/// Codex PKCE step 1: build the authorization URL. The UI opens this in the
+/// user's browser, then calls awaitCodexCallback to block on the redirect.
+export function startCodexPkce(): Promise<PkceAuthRequest> {
+  return invoke<PkceAuthRequest>("ai_start_codex_pkce");
+}
+
+/// Codex PKCE step 2: block on the localhost callback + exchange the code.
+/// Resolves on success; rejects on timeout/error.
+export function awaitCodexCallback(): Promise<void> {
+  return invoke("ai_await_codex_callback");
+}
+
+/// Drive the full Codex PKCE flow with UI callbacks. Opens the URL via the
+/// caller, then waits for the callback redirect.
+export async function runCodexPkceFlow(
+  onAuthUrl: (url: string) => void
+): Promise<void> {
+  const req = await startCodexPkce();
+  onAuthUrl(req.url);
+  await awaitCodexCallback();
+}
+
 // ===== ACP (Claude Code) =====
 
-/// Configure the ACP agent binary (default: `claude --acp`). Lets the user
-/// point at a custom Claude Code install path or another ACP-compliant agent.
+/// Configure the ACP agent binary. Default is `claude-agent-acp` (the official
+/// @agentclientprotocol/claude-agent-acp adapter — Claude Code itself does not
+/// expose ACP via a CLI flag). Lets the user point at a custom adapter path.
 export function setAcpBinary(binary: string, args: string[]): Promise<void> {
   return invoke("ai_set_acp_binary", { binary, args });
 }
