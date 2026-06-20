@@ -2,6 +2,7 @@ pub mod capability;
 pub mod manifest;
 pub mod package;
 pub mod policy;
+pub mod secret;
 pub mod state;
 
 use crate::capability::{CapabilityRequest, Decision};
