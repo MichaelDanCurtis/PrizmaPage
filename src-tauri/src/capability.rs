@@ -1,9 +1,13 @@
 use crate::manifest::Capability;
+use serde::{Deserialize, Serialize};
 
 /// A concrete request at runtime, distinct from a declared capability.
 /// A declared `Capability::Network { scopes }` permits a `CapabilityRequest::Network { host }`
 /// only when the host is within the scopes.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Tagged with `kind` so the frontend can construct requests as discriminated unions.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind")]
 pub enum CapabilityRequest {
     Network { host: String },
     Storage { byte_count: u64 },
@@ -12,7 +16,7 @@ pub enum CapabilityRequest {
     Ai { provider: String },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Decision {
     Allowed,
     Denied,
