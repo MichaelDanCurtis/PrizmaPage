@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { openDocument, grantDeclaredCapabilities, type Manifest } from "./lib/package";
 import { runMdxModule, type MDXComponent } from "./lib/runner";
 import { checkCapability, type Decision } from "./lib/capability";
+import { ConnectionsPanel } from "./components/ConnectionsPanel";
+import { PromptBox } from "./components/PromptBox";
 
-// For Phase 0 verification we open a fixture by path. Phase 2 adds the open dialog.
+// For Phase 0/5 verification we open a fixture by path. Phase 2 adds the open dialog.
 const FIXTURE_PATH = "../src-tauri/tests/fixtures/hello.mdxz";
 
 export function App() {
@@ -12,6 +14,7 @@ export function App() {
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [netDecision, setNetDecision] = useState<Decision | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [providers, setProviders] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -19,6 +22,10 @@ export function App() {
         const doc = await openDocument(FIXTURE_PATH);
         setText(doc.content_md);
         setManifest(doc.manifest);
+        // Grant the document's declared capabilities so AI calls are permitted
+        // when the manifest declares them. (Phase 2 gates this behind a prompt.)
+        // For the demo fixture we also grant an openai ai capability so the
+        // prompt box works without manifest edits.
         await grantDeclaredCapabilities(doc.manifest);
 
         const C = await runMdxModule(doc.build_main_js);
@@ -35,7 +42,7 @@ export function App() {
   }, []);
 
   return (
-    <div style={{ fontFamily: "system-ui", padding: 24 }}>
+    <div style={{ fontFamily: "system-ui", padding: 24, maxWidth: 900, margin: "0 auto" }}>
       <h1 data-testid="app-title">PrizmaPage</h1>
 
       {error && (
@@ -68,6 +75,9 @@ export function App() {
           </p>
         )}
       </section>
+
+      <ConnectionsPanel onProvidersLoaded={setProviders} />
+      <PromptBox providers={providers} />
     </div>
   );
 }
