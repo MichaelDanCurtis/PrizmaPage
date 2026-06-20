@@ -4,3 +4,5 @@ dist/
 .DS_Store
 *.log
 src-tauri/target/
+# Fixtures are build artifacts: regenerate with `npm run build:fixture`
+src-tauri/tests/fixtures/*.mdxz

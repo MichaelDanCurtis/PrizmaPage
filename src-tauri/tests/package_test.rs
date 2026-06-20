@@ -78,3 +78,17 @@ fn layer_one_text_is_always_extractable_even_if_build_absent() {
         "build/main.js absent is fine for prose-only docs"
     );
 }
+
+#[test]
+fn opens_fixture_built_by_save_compile_script() {
+    // The fixture is built by `npm run build:fixture` (compile-at-save).
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/hello.mdxz");
+    if !fixture.exists() {
+        eprintln!("skipping — run `npm run build:fixture` first");
+        return;
+    }
+    let contents = open_package(&fixture).unwrap();
+    assert!(contents.build_main_js.is_some());
+    assert!(contents.content_md.contains("Hello from PrizmaPage"));
+}
