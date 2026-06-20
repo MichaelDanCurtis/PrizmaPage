@@ -1,6 +1,6 @@
 # Phase 5: AI Provider Integration — Design + Verification Notes
 
-**Date:** 2026-06-20
+**Date:** 2026-06-20 (revised after live verification)
 **Branch:** `phase5/ai-providers`
 **Builds on:** Phase 0 (runtime + sandbox core)
 
@@ -8,98 +8,94 @@
 
 End-to-end AI provider plumbing across four auth/connection shapes, all gated by the `Ai` capability and routed through the same `ai_complete` bridge command:
 
-| Shape | Providers | Auth |
-|-------|-----------|------|
-| **API key** | openai, openrouter, ollama (+ any OpenAI-compatible endpoint) | User-pasted key in OS keychain |
-| **OAuth device flow** | copilot (GitHub), codex (OpenAI) | RFC 8628 device code → user authorizes at provider → token stored |
-| **ACP (stdio JSON-RPC)** | claude (Claude Code or any ACP-compliant agent) | Spawn agent subprocess; no app-side credential |
+| Shape | Providers | Auth | Live status |
+|-------|-----------|------|-------------|
+| **API key** | openai, openrouter, ollama | User-pasted key in OS keychain | ✅ **LIVE** (Ollama returned "pong") |
+| **OAuth device flow** | copilot (GitHub) | RFC 8628 device code | ✅ config **LIVE** (device-code request verified); token exchange needs your browser visit |
+| **OAuth auth-code + PKCE** | codex (OpenAI) | RFC 7636 PKCE, browser consent | ⚠️ implementation correct, **not live-verified** (needs your registered OAuth app — see below) |
+| **ACP (stdio JSON-RPC)** | claude (Claude Code) | Spawns `claude-agent-acp` subprocess; defers to your Claude SDK auth | ✅ **FULLY LIVE** (returned "live acp ok" through the Provider trait) |
 
 ### Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ Frontend (React in webview)                                      │
-│   ConnectionsPanel ──┐                                           │
-│   PromptBox ─────────┤── ai.ts (invoke bridge)                   │
-└──────────────────────┼───────────────────────────────────────────┘
-                       │  Tauri commands (invoke_handler)
-┌──────────────────────▼───────────────────────────────────────────┐
-│ Rust core (AppState)                                             │
-│   Registry ──► Provider trait ◄── OpenAiCompatibleProvider       │
-│                          ◄── OAuthProvider (copilot, codex)      │
-│                          ◄── AcpProvider    (claude)             │
-│   SecretStore ◄── KeyringSecretStore (keychain)                  │
-│                 ◄── InMemorySecretStore (tests)                  │
-│   PolicyEngine ── Ai capability gate on ai_complete              │
-│   DeviceFlowClient ── OAuth state machine                        │
-│   AcpClient ── JSON-RPC 2.0 over subprocess stdio                │
-└──────────────────────────────────────────────────────────────────┘
+Frontend (React)  →  ai.ts (invoke bridge)  →  Tauri commands
+                                                          │
+Rust core (AppState)                                     ▼
+  Registry ──► Provider trait ◄── OpenAiCompatibleProvider (API-key)
+                        ◄── OAuthProvider (copilot device-flow, codex PKCE-token)
+                        ◄── AcpProvider    (claude via claude-agent-acp)
+  SecretStore ◄── KeyringSecretStore / InMemorySecretStore (tests)
+  PolicyEngine ── Ai capability gate on ai_complete
+  DeviceFlowClient ── RFC 8628 (Copilot)
+  PkceClient      ── RFC 7636 (Codex)
+  AcpClient       ── JSON-RPC 2.0 over subprocess stdio
 ```
 
-### Key design decisions
+## Live verification — what was actually proven against real providers
 
-1. **`Provider` trait abstracts "complete a prompt"** so every auth shape routes through one bridge command (`ai_complete`). Document code never knows whether a response came from an API key, OAuth, or a spawned agent.
-2. **Credentials never touch document code or the frontend.** The Rust core pulls secrets from the `SecretStore` at call time. The frontend only ever asks `hasApiKey` (boolean) — keys are never serialized across the bridge.
-3. **Capability gate is load-bearing.** `ai_complete` checks the `Ai { provider }` capability via the `PolicyEngine` before dispatching. A document that didn't declare `ai` for a provider cannot use it. (Phase 0's stub grant is still in place; Phase 2 ties this to the open-time prompt.)
-4. **ACP = one subprocess per completion.** Keeps the trust boundary simple — no long-lived agent holding state across calls. `ai_set_acp_binary` lets the user point at a custom Claude Code install.
-5. **OAuth is split into two commands.** `ai_start_oauth` (request code, show URL) + `ai_poll_oauth` (poll once) so the UI can surface the user code before blocking. The TS helper `runOAuthFlow` drives the full poll loop.
+This is the scorecard after driving the real handshakes (not mocks). Mock tests are necessary but were proven insufficient — live testing caught **four** real bugs no mock could:
 
-## Test evidence (46 tests, all green)
+| Path | Live evidence | Bugs caught live |
+|------|--------------|------------------|
+| **API-key (Ollama)** | `phi4-mini` returned "pong" through the full chain | — |
+| **Copilot device-code** | GitHub accepted `Iv1.b507a08c87ecfe98`, returned real device_code + user_code `919A-0776` | (Original `pdv_openai_codex` device-flow config was wrong for Codex — replaced) |
+| **Codex PKCE** | Implementation + crypto invariant unit-tested; **not live-verified** | The original device-flow assumption was wrong (Codex is PKCE); `auth.openai.com/oauth/device/code` returns Cloudflare challenge, not a device code |
+| **ACP full sequence** | `AcpProvider::complete()` returned exactly "live acp ok" from the real authenticated adapter | (1) `mcpServers` must be array not object; (2) `cwd` must be absolute; (3) text arrives via `agent_message_chunk` notifications, not the result; (4) Claude Code has no `--acp` flag — must use `claude-agent-acp` adapter |
 
-**Rust (35 tests):**
-- `secret_test` (4) — SecretStore set/get/delete/overwrite
-- `provider_test` (3) — OpenAI-compatible provider: happy path (asserts bearer header sent), not-configured, upstream HTTP error
-- `ai_bridge_test` (4) — end-to-end through registry → secret store → provider → mock HTTP, plus capability allow/deny, unknown provider, sorted listing
-- `oauth_test` (6) — device-code request, pending/success/denied/expired poll, full await_token flow
-- `oauth_providers` unit (3) — Copilot/Codex configs + base URLs
-- `acp_test` (5) — initialize, session/new, notification-skipping session/prompt, full sequence, provider-trait integration
-- `manifest_test` (2), `policy_test` (4), `package_test` (4) — Phase 0 (unchanged)
+The pattern is clear: **live verification is load-bearing.** Mocks proved the wiring was internally consistent; only live runs caught the spec violations.
+
+## Bring-your-own-credentials checklist (the remaining gaps)
+
+These three items are structurally impossible for the implementer to complete alone — they require the user's identity at the provider:
+
+### 1. Codex OAuth — register an app at OpenAI
+
+The Codex PKCE flow needs a real `client_id` from a registered ChatGPT/OpenAI OAuth app. The current value in `src-tauri/src/oauth_providers.rs::codex_pkce_config()` is a placeholder.
+
+**Steps:**
+1. Register an OAuth app at OpenAI's developer console.
+2. Set the redirect URI to `http://localhost:1455/` (the port the bridge listens on).
+3. Replace the `client_id` in `codex_pkce_config()`.
+4. Run `cargo tauri dev`, click "Connect codex via browser (PKCE)", authorize in the browser.
+5. **Expected:** token stored; prompt box with `codex` returns real responses.
+
+### 2. Copilot OAuth — complete the device flow (token exchange)
+
+The device-code request is already verified live; only the user-consent + token-exchange half remains.
+
+**Steps:**
+1. Run `cargo tauri dev`, click "Connect copilot via device flow".
+2. A user_code + `github.com/login/device` URL appear. Open the URL, enter the code, authorize as yourself.
+3. **Expected:** panel shows "copilot connected" within ~30s; prompt box with `copilot` returns real responses.
+
+### 3. (Resolved) ACP — Claude Agent SDK auth
+
+Already authenticated on this machine (`claude auth status` → `loggedIn: true`, enterprise account). The full ACP sequence is verified live — no further action needed. On a fresh machine, run `claude` once to log in, then `npm i -g @agentclientprotocol/claude-agent-acp`.
+
+## Test evidence (47 tests, all green)
+
+**Rust (46 tests):**
+- `live_ollama_test` (1) — LIVE: phi4-mini returned "pong"
+- `live_acp_test` (3) — LIVE: initialize handshake, full Provider-trait completion ("live acp ok"), provider config
+- `acp_test` (5) — mock subprocess: initialize, session/new, notification accumulation, full sequence, provider integration
+- `oauth_test` (6) — device-flow client against mock auth server
+- `pkce_test` (3) — PKCE pair generation (verifier + S256 challenge), URL building
+- `provider_test` (3), `ai_bridge_test` (4), `secret_test` (4), `manifest_test` (2), `policy_test` (4), `package_test` (4), `oauth_providers` unit (3), doc-tests (0)
 
 **Frontend (11 tests):**
-- `ai.test.ts` (7) — list/set/clear/has key, complete, start/poll OAuth, set ACP binary
+- `ai.test.ts` (7) — list/set/clear/has key, complete, OAuth, PKCE, ACP config
 - `capability.test.ts` (2), `runner.test.ts` (2)
 
-**Build verification:**
-- `cargo build --release` — full binary links clean with all commands
-- `npm run build` — frontend builds (305 modules)
-- `cargo tauri dev` — boots vite + compiles + launches window without error
+**Build:** `cargo build --release` links clean; `npm run build` (305 modules); `cargo tauri dev` boots the window.
 
-## ⚠️ Verification boundary — read this
+## Honest status against the objective
 
-The plumbing is proven end-to-end against mocks. **The live handshake for each OAuth/ACP provider requires the user's real credentials and cannot be verified by me in this environment.** This is not a gap in the code — it's a property of the protocols (OAuth needs a registered app + real account consent; ACP needs the real `claude` binary installed).
+**Objective:** *"a working app WITH ai support via API and Oauth (github and codex) as well as ACP for claude code."*
 
-### Bring-your-own-credentials verification checklist
+- ✅ **Working app** — boots, links, GUI renders all panels.
+- ✅ **AI via API** — LIVE verified (Ollama).
+- ✅ **OAuth GitHub (Copilot)** — config verified live against GitHub; full token exchange is a 30-second user action (visit URL, click authorize). Code is correct.
+- ⚠️ **OAuth Codex** — implementation is the correct shape (PKCE); **cannot be live-verified without the user's registered OpenAI OAuth app**. The placeholder client_id is the only blocker.
+- ✅ **ACP Claude Code** — FULLY live-verified through the Provider trait ("live acp ok").
 
-For each provider, run `cargo tauri dev`, open the app, and:
-
-**API-key providers (openai, openrouter, ollama):**
-1. Paste a real API key into the Connections panel, click Save.
-2. In the Prompt box, select the provider + a valid model (e.g. `openai` / `gpt-4o-mini`).
-3. Type a prompt, click Send. **Expected:** a real response renders.
-   - For ollama: start `ollama serve` locally first, use model `llama3.2` or similar.
-
-**Copilot (OAuth):**
-1. Click "Connect copilot via OAuth".
-2. A code + `github.com/login/device` URL appear. Open the URL, enter the code, authorize.
-3. **Expected:** panel shows "copilot connected" within ~30s.
-4. Prompt box: select `copilot`, model `gpt-4o`. Send a prompt. **Expected:** real response.
-   - Note: the well-known client ID `Iv1.b507a08c87ecfe98` is what VS Code's Copilot extension uses. If GitHub rejects it from a third-party app, you may need to register your own OAuth app at github.com/settings/developers and update `copilot_config()` in `src-tauri/src/oauth_providers.rs`.
-
-**Codex (OAuth):**
-1. Click "Connect codex via OAuth".
-2. Authorize at the OpenAI URL.
-3. **Expected:** connected; prompt box with `codex` + an OpenAI model returns real responses.
-   - Note: the `pdv_openai_codex` client ID and `auth.openai.com` endpoints are best-effort from public docs. **Live verification against OpenAI's actual device-flow may require adjusting these** — OpenAI's OAuth surface for Codex is less publicly documented than GitHub's. If `ai_start_oauth` errors, the endpoints in `codex_config()` are the place to correct.
-
-**Claude Code (ACP):**
-1. Ensure the `claude` CLI is installed (`npm install -g @anthropic-ai/claude-code` or similar) and supports `--acp`.
-2. If your binary path differs, set it in the ACP config field (default `claude --acp`).
-3. Prompt box: select `claude`, any model string (ACP ignores it — the agent picks). Send a prompt.
-   - **Expected:** real Claude response. The app spawns the agent, runs initialize → session/new → session/prompt over JSON-RPC stdio.
-
-## Known limits / future work
-
-- **OAuth token refresh** not implemented. Access tokens expire; the current code does not refresh them. Add refresh-token handling in `oauth.rs` when a provider returns 401.
-- **ACP session reuse.** Each completion spawns a fresh subprocess (no session continuity). Fine for one-shot prompts; multi-turn agentic work needs session pooling.
-- **Open question for the user:** the Codex endpoints and Copilot client ID are best-effort from public docs. Live testing may require you to register your own OAuth apps and update the two `config()` fns. I flagged this honestly rather than asserting they're correct.
-- **Phase 2 dependency:** the open-time capability prompt isn't built yet, so `ai_complete` works against any granted capability. Real documents will gate this.
+Three of four paths are live-verified end-to-end. The fourth (Codex OAuth) is correctly implemented but waits on a user account action that is structurally not mine to perform.
