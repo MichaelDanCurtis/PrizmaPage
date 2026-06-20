@@ -1,3 +1,4 @@
+pub mod acp;
 pub mod capability;
 pub mod manifest;
 pub mod oauth;
