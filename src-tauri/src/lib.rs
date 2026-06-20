@@ -8,6 +8,7 @@ pub mod package;
 pub mod pkce;
 pub mod policy;
 pub mod provider;
+pub mod recents;
 pub mod registry;
 pub mod secret;
 pub mod state;
