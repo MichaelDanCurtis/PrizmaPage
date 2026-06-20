@@ -3,11 +3,13 @@ pub mod manifest;
 pub mod package;
 pub mod policy;
 pub mod provider;
+pub mod registry;
 pub mod secret;
 pub mod state;
 
 use crate::capability::{CapabilityRequest, Decision};
 use crate::package::{open_package, PackageContents};
+use crate::provider::{CompletionRequest, CompletionResponse};
 use crate::state::AppState;
 use std::path::PathBuf;
 use tauri::State;
@@ -57,6 +59,76 @@ fn check_capability(state: State<AppState>, request: CapabilityRequest) -> Resul
     Ok(policy.check(&request))
 }
 
+// ===== AI provider commands =====
+
+#[tauri::command]
+fn ai_list_providers(state: State<AppState>) -> Vec<String> {
+    state.providers.list()
+}
+
+#[tauri::command]
+async fn ai_set_api_key(
+    state: State<'_, AppState>,
+    provider: String,
+    api_key: String,
+) -> Result<(), String> {
+    state
+        .secrets
+        .set(&provider, &api_key)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn ai_clear_api_key(state: State<'_, AppState>, provider: String) -> Result<(), String> {
+    state
+        .secrets
+        .delete(&provider)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn ai_has_api_key(state: State<'_, AppState>, provider: String) -> Result<bool, String> {
+    let got = state.secrets.get(&provider).await.map_err(|e| e.to_string())?;
+    Ok(got.is_some())
+}
+
+#[tauri::command]
+async fn ai_complete(
+    state: State<'_, AppState>,
+    provider: String,
+    model: String,
+    messages: Vec<(String, String)>,
+) -> Result<CompletionResponse, String> {
+    // Capability gate: the open document must have declared this provider in
+    // its `ai` capability. Phase 0 stubs the grant; Phase 2 ties this to the
+    // open-time prompt.
+    {
+        let policy = state.policy.lock().map_err(|e| e.to_string())?;
+        let decision = policy.check(&CapabilityRequest::Ai {
+            provider: provider.clone(),
+        });
+        if decision == Decision::Denied {
+            return Err(format!(
+                "denied: document has not declared ai capability for provider '{provider}'"
+            ));
+        }
+    }
+
+    let p = state
+        .providers
+        .get(&provider)
+        .ok_or_else(|| format!("unknown provider '{provider}'"))?;
+
+    p.complete(
+        state.secrets.as_ref(),
+        &CompletionRequest { model, messages },
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -64,7 +136,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_document,
             grant_declared_capabilities,
-            check_capability
+            check_capability,
+            ai_list_providers,
+            ai_set_api_key,
+            ai_clear_api_key,
+            ai_has_api_key,
+            ai_complete
         ])
         .run(tauri::generate_context!())
         .expect("error while running PrizmaPage");
