@@ -128,6 +128,10 @@ impl PkceClient {
     /// Step 2 + 3: listen on localhost:port for the callback, extract the auth
     /// code, then exchange it for a token. Stores the token via SecretStore.
     /// `timeout_secs` bounds how long we wait for the user to authorize.
+    ///
+    /// Robust to browsers that fire a favicon/preflight GET before the real
+    /// redirect: loops accepting connections until it sees one carrying
+    /// `code=` or `error=` in the query string, then closes the listener.
     pub async fn await_callback_and_exchange(
         &self,
         pkce: &PkcePair,
@@ -138,64 +142,81 @@ impl PkceClient {
         // Bind the listener.
         let listener = tokio::net::TcpListener::bind(("127.0.0.1", self.config.redirect_port))
             .await
-            .map_err(|e| PkceError::Io(e))?;
+            .map_err(PkceError::Io)?;
 
-        let (mut socket, _) = tokio::time::timeout(
-            Duration::from_secs(timeout_secs),
-            listener.accept(),
-        )
-        .await
-        .map_err(|_| PkceError::Timeout)?
-        .map_err(|e| PkceError::Io(e))?;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-        // Read the HTTP request line + headers (minimal).
-        use tokio::io::AsyncReadExt;
-        let mut buf = [0u8; 4096];
-        let n = socket.read(&mut buf).await.map_err(|e| PkceError::Io(e))?;
-        let request = String::from_utf8_lossy(&buf[..n]).to_string();
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_secs);
 
-        // Parse the request line: GET /?code=...&state=... HTTP/1.1
-        let request_line = request.lines().next().unwrap_or("");
-        let path = request_line.split_whitespace().nth(1).unwrap_or("");
-        let query = path.split_once('?').map(|(_, q)| q).unwrap_or("");
+        // Keep accepting connections until we see the code-bearing redirect
+        // (or the deadline). Each non-code request (favicon, preflight) gets a
+        // polite 404 so the browser doesn't retry-spam.
+        let code: String = loop {
+            let accept_fut = listener.accept();
+            let (mut socket, _) = match tokio::time::timeout_at(deadline, accept_fut).await {
+                Ok(Ok(c)) => c,
+                Ok(Err(e)) => return Err(PkceError::Io(e)),
+                Err(_) => return Err(PkceError::Timeout),
+            };
 
-        let mut code: Option<String> = None;
-        let mut state: Option<String> = None;
-        let mut err: Option<String> = None;
-        for pair in query.split('&') {
-            if let Some((k, v)) = pair.split_once('=') {
-                match k {
-                    "code" => code = Some(percent_decode(v)),
-                    "state" => state = Some(percent_decode(v)),
-                    "error" => err = Some(percent_decode(v)),
-                    _ => {}
+            // Read up to 16KB so large cookie headers don't truncate the request line.
+            let mut buf = vec![0u8; 16384];
+            let n = match socket.read(&mut buf).await {
+                Ok(n) => n,
+                Err(_) => continue, // peer hung up; accept the next
+            };
+            let request = String::from_utf8_lossy(&buf[..n]).to_string();
+            let request_line = request.lines().next().unwrap_or("");
+            let path = request_line.split_whitespace().nth(1).unwrap_or("");
+            let query = path.split_once('?').map(|(_, q)| q).unwrap_or("");
+
+            // Parse query params.
+            let mut this_code: Option<String> = None;
+            let mut this_state: Option<String> = None;
+            let mut this_err: Option<String> = None;
+            for pair in query.split('&') {
+                if let Some((k, v)) = pair.split_once('=') {
+                    match k {
+                        "code" => this_code = Some(percent_decode(v)),
+                        "state" => this_state = Some(percent_decode(v)),
+                        "error" => this_err = Some(percent_decode(v)),
+                        _ => {}
+                    }
                 }
             }
-        }
 
-        // Respond to the browser so it doesn't hang.
-        use tokio::io::AsyncWriteExt;
-        let body = if err.is_some() {
-            "Authorization failed. You can close this tab."
-        } else {
-            "Authorization complete. You can close this tab."
+            // Respond so the browser doesn't hang.
+            let (status, body) = if this_code.is_some() || this_err.is_some() {
+                let b = if this_err.is_some() {
+                    "Authorization failed. You can close this tab."
+                } else {
+                    "Authorization complete. You can close this tab."
+                };
+                ("200 OK", b)
+            } else {
+                ("404 Not Found", "")
+            };
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<html><body><p>{body}</p></body></html>"
+            );
+            let _ = socket.write_all(response.as_bytes()).await;
+            let _ = socket.flush().await;
+
+            // Got the real redirect — dispatch on its contents.
+            if let Some(e) = this_err {
+                return Err(PkceError::Callback(e));
+            }
+            if this_code.is_some() {
+                let got_state = this_state.unwrap_or_default();
+                if got_state != expected_state {
+                    return Err(PkceError::Callback(format!(
+                        "state mismatch (expected {expected_state}, got {got_state})"
+                    )));
+                }
+                break this_code.unwrap();
+            }
+            // else: favicon/preflight — keep the listener open for the next.
         };
-        let response = format!(
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<html><body><p>{body}</p></body></html>"
-        );
-        let _ = socket.write_all(response.as_bytes()).await;
-        let _ = socket.flush().await;
-
-        if let Some(e) = err {
-            return Err(PkceError::Callback(e));
-        }
-        let got_state = state.unwrap_or_default();
-        if got_state != expected_state {
-            return Err(PkceError::Callback(format!(
-                "state mismatch (expected {expected_state}, got {got_state})"
-            )));
-        }
-        let code = code.ok_or_else(|| PkceError::Callback("no code in callback".into()))?;
 
         // Step 3: exchange.
         let redirect_uri = format!("http://localhost:{}/", self.config.redirect_port);

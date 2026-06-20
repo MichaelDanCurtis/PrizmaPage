@@ -238,9 +238,21 @@ fn ai_set_acp_binary(state: State<AppState>, binary: String, args: Vec<String>) 
     Ok(())
 }
 
+/// Open a URL in the system default browser. Used by OAuth flows (Copilot
+/// verification URL, Codex PKCE authorize URL). The opener plugin scopes this
+/// to allow-listed URLs only — see src-tauri/capabilities/default.json.
+#[tauri::command]
+async fn open_in_browser(url: String, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             open_document,
@@ -255,7 +267,8 @@ pub fn run() {
             ai_poll_oauth,
             ai_start_codex_pkce,
             ai_await_codex_callback,
-            ai_set_acp_binary
+            ai_set_acp_binary,
+            open_in_browser
         ])
         .run(tauri::generate_context!())
         .expect("error while running PrizmaPage");

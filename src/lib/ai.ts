@@ -1,5 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 
+/// Open a URL in the system default browser (NOT a new webview window).
+/// Used for OAuth: opens the verification page / authorize URL in the user's
+/// real browser where they're already logged in to GitHub/OpenAI.
+export function openInBrowser(url: string): Promise<void> {
+  return invoke("open_in_browser", { url });
+}
+
 export interface ChatMessage {
   role: string;
   content: string;

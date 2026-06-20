@@ -7,6 +7,7 @@ import {
   runOAuthFlow,
   runCodexPkceFlow,
   setAcpBinary,
+  openInBrowser,
   type OAuthInstructions,
 } from "../lib/ai";
 
@@ -110,8 +111,10 @@ export function ConnectionsPanel({ onProvidersLoaded }: Props) {
           user_code: "(browser opens automatically)",
           verification_uri: url,
         });
-        // Best-effort: open the URL in the user's default browser.
-        window.open(url, "_blank");
+        // Open in the SYSTEM browser (not a webview) via the shell plugin —
+        // window.open would open a PrizmaPage window, not the user's browser
+        // where they're already logged into OpenAI.
+        openInBrowser(url).catch((e) => setError(String(e)));
       });
       setOauthInstructions(null);
       setOauthBusy(null);
@@ -147,10 +150,20 @@ export function ConnectionsPanel({ onProvidersLoaded }: Props) {
         </p>
       )}
       {oauthInstructions && (
-        <p data-testid="oauth-instructions" style={{ background: "#fffbe6", padding: 12 }}>
-          Visit <a href={oauthInstructions.verification_uri}>{oauthInstructions.verification_uri}</a>{" "}
-          and enter code: <strong>{oauthInstructions.user_code}</strong>
-        </p>
+        <div data-testid="oauth-instructions" style={{ background: "#fffbe6", padding: 12 }}>
+          <p>
+            Visit{" "}
+            <a href={oauthInstructions.verification_uri}>{oauthInstructions.verification_uri}</a>{" "}
+            {oauthInstructions.user_code !== "(browser opens automatically)" && (
+              <>and enter code: <strong>{oauthInstructions.user_code}</strong></>
+            )}
+          </p>
+          <button
+            onClick={() => openInBrowser(oauthInstructions.verification_uri).catch((e) => setError(String(e)))}
+          >
+            Open in browser
+          </button>
+        </div>
       )}
 
       <ul style={{ listStyle: "none", padding: 0 }}>
