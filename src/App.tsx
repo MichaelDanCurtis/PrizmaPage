@@ -1,83 +1,40 @@
 import { useEffect, useState } from "react";
-import { openDocument, grantDeclaredCapabilities, type Manifest } from "./lib/package";
-import { runMdxModule, type MDXComponent } from "./lib/runner";
-import { checkCapability, type Decision } from "./lib/capability";
-import { ConnectionsPanel } from "./components/ConnectionsPanel";
-import { PromptBox } from "./components/PromptBox";
-
-// For Phase 0/5 verification we open a fixture by path. Phase 2 adds the open dialog.
-const FIXTURE_PATH = "../src-tauri/tests/fixtures/hello.mdxz";
+import { useOpenDocument } from "./hooks/useOpenDocument";
+import { listRecents, shareDocumentPath, type RecentEntry } from "./lib/recents";
+import { EmptyState } from "./components/EmptyState";
+import { DocumentView } from "./components/DocumentView";
 
 export function App() {
-  const [Component, setComponent] = useState<MDXComponent | null>(null);
-  const [text, setText] = useState<string>("");
-  const [manifest, setManifest] = useState<Manifest | null>(null);
-  const [netDecision, setNetDecision] = useState<Decision | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [providers, setProviders] = useState<string[]>([]);
+  const open = useOpenDocument();
+  const [recents, setRecents] = useState<RecentEntry[]>([]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const doc = await openDocument(FIXTURE_PATH);
-        setText(doc.content_md);
-        setManifest(doc.manifest);
-        // Grant the document's declared capabilities so AI calls are permitted
-        // when the manifest declares them. (Phase 2 gates this behind a prompt.)
-        // For the demo fixture we also grant an openai ai capability so the
-        // prompt box works without manifest edits.
-        await grantDeclaredCapabilities(doc.manifest);
+    listRecents().then(setRecents).catch(() => setRecents([]));
+  }, [open.state]); // refresh recents when the open state changes
 
-        const C = await runMdxModule(doc.build_main_js);
-        setComponent(() => C);
+  const filename = open.path?.split("/").pop() ?? "document.mdxz";
 
-        // The hello fixture declares NO capabilities, so the policy engine
-        // (which starts at zero) must DENY this network request.
-        const decision = await checkCapability({ kind: "Network", host: "evil.com" });
-        setNetDecision(decision);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    })();
-  }, []);
+  if (open.state === "document" && open.document) {
+    return (
+      <DocumentView
+        document={open.document}
+        filename={filename}
+        onEdit={() => {
+          /* Layer 2 — present but inert. */
+        }}
+        onShare={() => {
+          if (open.path) shareDocumentPath(open.path).catch(() => {});
+        }}
+      />
+    );
+  }
 
   return (
-    <div style={{ fontFamily: "system-ui", padding: 24, maxWidth: 900, margin: "0 auto" }}>
-      <h1 data-testid="app-title">PrizmaPage</h1>
-
-      {error && (
-        <section data-testid="error-panel" style={{ color: "crimson" }}>
-          <h2>Error</h2>
-          <pre>{error}</pre>
-        </section>
-      )}
-
-      <section data-testid="layer1-text">
-        <h2>Layer 1 (text, always vectorizable)</h2>
-        <pre style={{ whiteSpace: "pre-wrap" }}>{text}</pre>
-      </section>
-
-      <section data-testid="layer2-runtime">
-        <h2>Layer 2 (compiled, running in sandbox)</h2>
-        {Component ? <Component /> : <p>No executable component in this document.</p>}
-      </section>
-
-      <section data-testid="policy-panel">
-        <h2>Policy engine</h2>
-        <p>
-          Document requested <code>network: evil.com</code>. Decision:{" "}
-          <strong data-testid="net-decision">{netDecision ?? "…"}</strong>
-        </p>
-        {manifest && (
-          <p>
-            Declared capabilities: {manifest.capabilities.length} (signature:{" "}
-            {manifest.signature ?? "none"})
-          </p>
-        )}
-      </section>
-
-      <ConnectionsPanel onProvidersLoaded={setProviders} />
-      <PromptBox providers={providers} />
-    </div>
+    <EmptyState
+      recents={recents}
+      onOpen={open.openViaPicker}
+      onDrop={open.openViaDrop}
+      onOpenRecent={open.openRecent}
+    />
   );
 }
