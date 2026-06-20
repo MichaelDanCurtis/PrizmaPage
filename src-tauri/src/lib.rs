@@ -1,4 +1,5 @@
 pub mod acp;
+pub mod acp_provider;
 pub mod capability;
 pub mod manifest;
 pub mod oauth;
@@ -187,6 +188,15 @@ async fn ai_poll_oauth(state: State<'_, AppState>, provider: String) -> Result<S
     }
 }
 
+/// Configure the ACP agent binary (default: `claude --acp`). Lets the user
+/// point at a custom Claude Code install path or another ACP-compliant agent.
+#[tauri::command]
+fn ai_set_acp_binary(state: State<AppState>, binary: String, args: Vec<String>) -> Result<(), String> {
+    let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    state.acp_provider.set_binary(&binary, &arg_refs);
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -201,7 +211,8 @@ pub fn run() {
             ai_has_api_key,
             ai_complete,
             ai_start_oauth,
-            ai_poll_oauth
+            ai_poll_oauth,
+            ai_set_acp_binary
         ])
         .run(tauri::generate_context!())
         .expect("error while running PrizmaPage");

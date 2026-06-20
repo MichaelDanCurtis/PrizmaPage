@@ -6,6 +6,9 @@
 //! against a real spawned process without needing the actual `claude` binary.
 
 use prizmapage::acp::{AcpClient, Spawner};
+use prizmapage::acp_provider::AcpProvider;
+use prizmapage::provider::{CompletionRequest, Provider};
+use prizmapage::secret::InMemorySecretStore;
 use std::process::Stdio;
 use tokio::process::Child;
 
@@ -82,4 +85,46 @@ async fn full_initialize_new_prompt_sequence() {
     let sid = client.session_new().await.unwrap();
     let r1 = client.session_prompt(&sid, "first").await.unwrap();
     assert_eq!(r1.text.as_deref(), Some("Hello from mock Claude"));
+}
+
+#[tokio::test]
+async fn acp_provider_completes_a_prompt_through_the_provider_trait() {
+    // Proves ACP integrates with the same Provider path ai_complete uses:
+    // spawn mock agent, run initialize + session/new + session/prompt, return
+    // the text. (The mock spawner is wired in by temporarily swapping the
+    // AcpProvider's binary via spawn_with through AcpClient directly — the
+    // Provider trait's complete() does its own spawn via the configured binary,
+    // so we point it at python3 -c <mock script> for this test.)
+    let script = r#"
+import sys, json
+while True:
+    line = sys.stdin.readline()
+    if not line:
+        break
+    try:
+        req = json.loads(line)
+    except Exception:
+        continue
+    method = req.get("method")
+    rid = req.get("id")
+    if method == "initialize":
+        sys.stdout.write(json.dumps({"jsonrpc":"2.0","id":rid,"result":{"protocolVersion":1,"agentInfo":{"name":"mock"}}}) + "\n"); sys.stdout.flush()
+    elif method == "session/new":
+        sys.stdout.write(json.dumps({"jsonrpc":"2.0","id":rid,"result":{"sessionId":"s"}}) + "\n"); sys.stdout.flush()
+    elif method == "session/prompt":
+        sys.stdout.write(json.dumps({"jsonrpc":"2.0","id":rid,"result":{"text":"ACP provider reply"}}) + "\n"); sys.stdout.flush()
+"#;
+    let provider = AcpProvider::new("claude", "python3", &["-c", script]);
+    let secret = InMemorySecretStore::new();
+    let resp = provider
+        .complete(
+            &secret,
+            &CompletionRequest {
+                model: "ignored-by-acp".into(),
+                messages: vec![("user".into(), "hello".into())],
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.text, "ACP provider reply");
 }

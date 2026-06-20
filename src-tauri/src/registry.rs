@@ -44,6 +44,46 @@ impl Registry {
             "codex".into(),
             Arc::new(crate::oauth_providers::OAuthProvider::codex()),
         );
+        // ACP-backed agent. Default spawns `claude --acp`; configurable at
+        // runtime via the ai_set_acp_binary command.
+        providers.insert(
+            "claude".into(),
+            Arc::new(crate::acp_provider::AcpProvider::claude_code()),
+        );
+        Self {
+            providers: RwLock::new(providers),
+        }
+    }
+
+    /// Like with_builtin_openai_compatible, but injects a shared ACP provider
+    /// instance so AppState can reconfigure it directly (used by
+    /// ai_set_acp_binary). The same Arc is registered under "claude".
+    pub fn with_acp(acp: Arc<crate::acp_provider::AcpProvider>) -> Self {
+        let mut providers: HashMap<String, Arc<dyn Provider>> = HashMap::new();
+        providers.insert(
+            "openai".into(),
+            Arc::new(OpenAiCompatibleProvider::new("openai", "https://api.openai.com")),
+        );
+        providers.insert(
+            "openrouter".into(),
+            Arc::new(OpenAiCompatibleProvider::new(
+                "openrouter",
+                "https://openrouter.ai/api",
+            )),
+        );
+        providers.insert(
+            "ollama".into(),
+            Arc::new(OpenAiCompatibleProvider::new("ollama", "http://localhost:11434")),
+        );
+        providers.insert(
+            "copilot".into(),
+            Arc::new(crate::oauth_providers::OAuthProvider::copilot()),
+        );
+        providers.insert(
+            "codex".into(),
+            Arc::new(crate::oauth_providers::OAuthProvider::codex()),
+        );
+        providers.insert("claude".into(), acp as Arc<dyn Provider>);
         Self {
             providers: RwLock::new(providers),
         }
