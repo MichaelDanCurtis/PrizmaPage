@@ -11,8 +11,10 @@ const root = join(here, "..");
 
 async function compileMdx(sourcePath) {
   const source = readFileSync(sourcePath, "utf8");
-  // compile() turns MDX into a JS module string (layer 2, executable).
-  const compiled = String(await compile(source));
+  // compile() with outputFormat: 'function-body' turns MDX into a JS function
+  // body (layer 2, executable) that the runner can evaluate via run().
+  // The default 'program' format emits import/export and is NOT runnable by run().
+  const compiled = String(await compile(source, { outputFormat: "function-body" }));
   return compiled;
 }
 
