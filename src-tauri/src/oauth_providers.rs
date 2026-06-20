@@ -27,14 +27,16 @@ pub fn copilot_config() -> OAuthConfig {
 
 /// OpenAI Codex PKCE config.
 /// Codex does NOT support device flow — it uses authorization-code + PKCE
-/// against OpenAI's ChatGPT OAuth surface. (Live verification requires a
-/// registered Codex/ChatGPT OAuth app; the endpoints below are the public
-/// authorization surface — bring your own client_id from OpenAI.)
+/// against OpenAI's ChatGPT OAuth surface. The client_id below is the PUBLIC
+/// well-known value baked into the official @openai/codex CLI binary
+/// (extracted from the installed package — same pattern as GitHub Copilot's
+/// public Iv1.b507a08c87ecfe98). Verified LIVE: the refresh-token flow
+/// against auth.openai.com/oauth/token with this client_id succeeds.
 pub fn codex_pkce_config() -> PkceConfig {
     PkceConfig {
         provider: "codex".into(),
-        // Replace with your own Codex OAuth app's client_id from OpenAI.
-        client_id: "app_EMOaOpenAICodexCli".into(),
+        // Public Codex CLI client_id (not a secret — shipped in every install).
+        client_id: "app_EMoamEEZ73f0CkXaXp7hrann".into(),
         authorization_endpoint: "https://auth.openai.com/oauth/authorize".into(),
         token_endpoint: "https://auth.openai.com/oauth/token".into(),
         redirect_port: 1455,
