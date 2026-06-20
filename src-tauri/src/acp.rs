@@ -259,13 +259,20 @@ impl AcpClient {
     /// ACP session/new: create a conversation session.
     pub async fn session_new(&mut self) -> Result<String, AcpError> {
         let id = self.next_request_id();
+        // cwd MUST be absolute — the Claude adapter rejects "." with
+        // "must be an absolute path".
+        let cwd = std::env::current_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "/tmp".to_string());
         let req = JsonRpcRequest {
             jsonrpc: "2.0".into(),
             id,
             method: "session/new".into(),
+            // mcpServers MUST be an array per the ACP schema (the Claude adapter
+            // rejects an object with "expected array, received object").
             params: Some(serde_json::json!({
-                "cwd": ".",
-                "mcpServers": {},
+                "cwd": cwd,
+                "mcpServers": [],
                 "sessionStrategy": "new"
             })),
         };
@@ -274,9 +281,13 @@ impl AcpClient {
         Ok(result.session_id)
     }
 
-    /// ACP session/prompt: send a user message and read the final result.
-    /// Notifications streamed during the prompt are skipped for now (Phase 5
-    /// minimal: we want the final text).
+    /// ACP session/prompt: send a user message, accumulate streamed
+    /// `agent_message_chunk` notifications into the final text, and return
+    /// when the matching response (id) arrives.
+    ///
+    /// The ACP spec streams the agent's text via session/update notifications
+    /// (update.sessionUpdate == "agent_message_chunk", update.content.text);
+    /// the final session/prompt response carries only stopReason + usage.
     pub async fn session_prompt(
         &mut self,
         session_id: &str,
@@ -293,7 +304,59 @@ impl AcpClient {
             })),
         };
         self.write_line(&serde_json::to_string(&req)?).await?;
-        self.read_response::<SessionPromptResult>(id).await
+
+        // Accumulate text chunks from notifications until the response arrives.
+        let mut accumulated = String::new();
+        loop {
+            let line = self
+                .stdout_rx
+                .recv()
+                .await
+                .ok_or(AcpError::ProcessExited)??;
+            let v: serde_json::Value = serde_json::from_str(&line)
+                .map_err(|e| AcpError::Malformed(e.to_string()))?;
+
+            // Notification with agent text?
+            if v.get("id").is_none() {
+                if v.get("method").and_then(|m| m.as_str()) == Some("session/update") {
+                    let update = &v["params"]["update"];
+                    if update.get("sessionUpdate").and_then(|s| s.as_str())
+                        == Some("agent_message_chunk")
+                    {
+                        if let Some(text) = update.get("content").and_then(|c| c.get("text")).and_then(|t| t.as_str()) {
+                            accumulated.push_str(text);
+                        }
+                    }
+                }
+                continue;
+            }
+
+            // It's a response — must be ours.
+            let resp_id = v.get("id").and_then(|i| i.as_i64()).unwrap_or(0);
+            if resp_id != id {
+                continue;
+            }
+            if let Some(err) = v.get("error") {
+                let code = err.get("code").and_then(|c| c.as_i64()).unwrap_or(-1);
+                let message = err
+                    .get("message")
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("unknown error")
+                    .to_string();
+                return Err(AcpError::Rpc { code, message });
+            }
+            // Result present means completion. Text came from notifications.
+            let _result = v.get("result").ok_or_else(|| {
+                AcpError::Malformed("session/prompt response missing result".into())
+            })?;
+            return Ok(SessionPromptResult {
+                text: if accumulated.is_empty() {
+                    None
+                } else {
+                    Some(accumulated)
+                },
+            });
+        }
     }
 }
 

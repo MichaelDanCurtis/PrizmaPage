@@ -35,9 +35,13 @@ while True:
         sys.stdout.write(json.dumps({"jsonrpc":"2.0","id":rid,"result":{"sessionId":"sess-123"}}) + "\n")
         sys.stdout.flush()
     elif method == "session/prompt":
-        sys.stdout.write(json.dumps({"jsonrpc":"2.0","method":"session/update","params":{"text":"thinking..."}}) + "\n")
+        # Stream agent_message_chunk updates matching the real ACP spec shape,
+        # then a final result with only stopReason (text came via updates).
+        sys.stdout.write(json.dumps({"jsonrpc":"2.0","method":"session/update","params":{"update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"Hello "}}}}) + "\n")
         sys.stdout.flush()
-        sys.stdout.write(json.dumps({"jsonrpc":"2.0","id":rid,"result":{"text":"Hello from mock Claude"}}) + "\n")
+        sys.stdout.write(json.dumps({"jsonrpc":"2.0","method":"session/update","params":{"update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"from mock Claude"}}}}) + "\n")
+        sys.stdout.flush()
+        sys.stdout.write(json.dumps({"jsonrpc":"2.0","id":rid,"result":{"stopReason":"end_turn"}}) + "\n")
         sys.stdout.flush()
 "#;
     let script = script.to_string();
@@ -112,7 +116,8 @@ while True:
     elif method == "session/new":
         sys.stdout.write(json.dumps({"jsonrpc":"2.0","id":rid,"result":{"sessionId":"s"}}) + "\n"); sys.stdout.flush()
     elif method == "session/prompt":
-        sys.stdout.write(json.dumps({"jsonrpc":"2.0","id":rid,"result":{"text":"ACP provider reply"}}) + "\n"); sys.stdout.flush()
+        sys.stdout.write(json.dumps({"jsonrpc":"2.0","method":"session/update","params":{"update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"ACP provider reply"}}}}) + "\n"); sys.stdout.flush()
+        sys.stdout.write(json.dumps({"jsonrpc":"2.0","id":rid,"result":{"stopReason":"end_turn"}}) + "\n"); sys.stdout.flush()
 "#;
     let provider = AcpProvider::new("claude", "python3", &["-c", script]);
     let secret = InMemorySecretStore::new();
