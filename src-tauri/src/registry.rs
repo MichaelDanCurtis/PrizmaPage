@@ -33,6 +33,17 @@ impl Registry {
             "ollama".into(),
             Arc::new(OpenAiCompatibleProvider::new("ollama", "http://localhost:11434")),
         );
+        // OAuth-authenticated providers. Their bearer token is the OAuth access
+        // token, stored under the provider name in the SecretStore after the
+        // device flow completes (see ai_start_oauth / ai_poll_oauth commands).
+        providers.insert(
+            "copilot".into(),
+            Arc::new(crate::oauth_providers::OAuthProvider::copilot()),
+        );
+        providers.insert(
+            "codex".into(),
+            Arc::new(crate::oauth_providers::OAuthProvider::codex()),
+        );
         Self {
             providers: RwLock::new(providers),
         }
