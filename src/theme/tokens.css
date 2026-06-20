@@ -1,0 +1,38 @@
+/* PrizmaPage design tokens.
+ * The single source of color, type, and spacing. Components reference these
+ * by name (var(--accent)); the literal hex values live ONLY in this file.
+ * To change the accent color later, edit --accent here — nothing else.
+ */
+
+:root {
+  /* Color */
+  --accent: #4f46e5;
+  --accent-soft: #eef2ff;
+  --accent-border: #c7d2fe;
+  --bg: #ffffff;
+  --bg-muted: #fafafa;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+  --border: #e5e7eb;
+  --border-soft: #f1f5f9;
+
+  /* Type scale — Inter with -apple-system fallback (set on body in App) */
+  --font-sans: -apple-system, "Inter", system-ui, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", monospace;
+  --font-display: 700 26px/1.2 var(--font-sans);
+  --font-h2: 600 18px/1.3 var(--font-sans);
+  --font-body: 400 16px/1.7 var(--font-sans);
+  --font-small: 400 13px/1.5 var(--font-sans);
+  --font-label: 600 11px/1 var(--font-sans);
+  --font-footer: 400 10px/1.4 var(--font-mono);
+  /* letter-spacing/uppercase applied inline where used (eyebrows, labels) */
+
+  /* Spacing & shape */
+  --radius-sm: 4px;
+  --radius: 7px;
+  --radius-lg: 8px;
+  --radius-xl: 14px;
+  --content-width: 680px;
+  --content-padding: 32px;
+}
