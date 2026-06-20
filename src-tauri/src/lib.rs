@@ -1,5 +1,6 @@
 pub mod capability;
 pub mod manifest;
+pub mod oauth;
 pub mod package;
 pub mod policy;
 pub mod provider;
