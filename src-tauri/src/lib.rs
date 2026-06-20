@@ -250,6 +250,70 @@ async fn open_in_browser(url: String, app: tauri::AppHandle) -> Result<(), Strin
         .map_err(|e| e.to_string())
 }
 
+/// Native file picker for .mdxz. Returns None if the user cancels.
+#[tauri::command]
+async fn open_file_dialog(
+    app: tauri::AppHandle,
+) -> Result<Option<std::path::PathBuf>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let file_path = app
+        .dialog()
+        .file()
+        .add_filter("PrizmaPage document", &["mdxz"])
+        .blocking_pick_file();
+    Ok(file_path.map(|p| p.into_path().unwrap_or_default()))
+}
+
+/// Returns the last 5 opened documents, newest first.
+#[tauri::command]
+fn recent_documents(app: tauri::AppHandle) -> Result<Vec<recents::RecentEntry>, String> {
+    let path = recents_path(&app).ok_or_else(|| "no app data dir".to_string())?;
+    recents::load_recents(&path).map_err(|e| e.to_string())
+}
+
+/// Called after a successful open. Dedupes, prepends, truncates to 5.
+#[tauri::command]
+fn add_recent_document(app: tauri::AppHandle, path: std::path::PathBuf) -> Result<(), String> {
+    let store_path = recents_path(&app).ok_or_else(|| "no app data dir".to_string())?;
+    let name = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("document")
+        .to_string();
+    let opened_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    recents::add_recent(
+        &store_path,
+        recents::RecentEntry {
+            path,
+            name,
+            opened_at,
+        },
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Layer 1 share stub: copies the current doc's absolute path to the clipboard.
+#[tauri::command]
+async fn share_document_path(
+    app: tauri::AppHandle,
+    path: std::path::PathBuf,
+) -> Result<(), String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    app.clipboard()
+        .write_text(path.to_string_lossy().to_string())
+        .map_err(|e| e.to_string())
+}
+
+/// Resolve the recents.json path inside the OS app-data dir.
+fn recents_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    use tauri::Manager;
+    let dir = app.path().app_data_dir().ok()?;
+    Some(dir.join("recents.json"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -271,7 +335,11 @@ pub fn run() {
             ai_start_codex_pkce,
             ai_await_codex_callback,
             ai_set_acp_binary,
-            open_in_browser
+            open_in_browser,
+            open_file_dialog,
+            recent_documents,
+            add_recent_document,
+            share_document_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running PrizmaPage");
