@@ -9,6 +9,7 @@ pub mod pkce;
 pub mod policy;
 pub mod provider;
 pub mod recents;
+pub mod save;
 pub mod registry;
 pub mod secret;
 pub mod state;
@@ -325,6 +326,19 @@ fn welcome_document_path(app: tauri::AppHandle) -> Result<std::path::PathBuf, St
         .map_err(|e| e.to_string())
 }
 
+/// Writes a three-layer .mdxz from frontend-supplied layers.
+/// The frontend compiles MDX -> compiled_js (function-body) before calling.
+#[tauri::command]
+fn save_document(
+    path: std::path::PathBuf,
+    content_md: String,
+    compiled_js: String,
+    manifest: crate::manifest::Manifest,
+) -> Result<(), String> {
+    crate::save::save_document(&path, &content_md, &compiled_js, &manifest)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -351,7 +365,8 @@ pub fn run() {
             recent_documents,
             add_recent_document,
             share_document_path,
-            welcome_document_path
+            welcome_document_path,
+            save_document
         ])
         .run(tauri::generate_context!())
         .expect("error while running PrizmaPage");
