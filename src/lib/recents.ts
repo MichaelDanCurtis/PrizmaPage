@@ -17,3 +17,8 @@ export function addRecent(path: string): Promise<void> {
 export function shareDocumentPath(path: string): Promise<void> {
   return invoke("share_document_path", { path });
 }
+
+/// Returns the absolute path to the bundled welcome.mdxz (first-run intro doc).
+export function welcomePath(): Promise<string> {
+  return invoke<string>("welcome_document_path");
+}

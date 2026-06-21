@@ -1,0 +1,62 @@
+export const StatCard = ({ label, value, accent }) => (
+  <div style={{
+    background: 'var(--accent-soft, #eef2ff)',
+    border: '1px solid var(--accent-border, #c7d2fe)',
+    borderRadius: '8px',
+    padding: '16px',
+    display: 'inline-block',
+    marginRight: '12px',
+    minWidth: '120px'
+  }}>
+    <div style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--accent, #4f46e5)', marginBottom: '6px' }}>{label}</div>
+    <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text, #0f172a)' }}>{value}</div>
+  </div>
+);
+
+# Welcome to PrizmaPage
+
+You're looking at a `.mdxz` document — a shareable, executable mini-app built
+from MDX. This page is rendered inside a sandboxed runtime; it can display prose,
+run components, and (in future layers) ask the AI to build new things on the fly.
+
+## What makes this different from a PDF
+
+A PDF is a frozen picture of a document. A `.mdxz` file is a *running program*.
+The card below isn't an image — it's a live React component, compiled into this
+file at save time and executing right now inside your viewer.
+
+<div style={{ margin: '24px 0' }}>
+  <StatCard label="Format" value=".mdxz" />
+  <StatCard label="Runtime" value="Sandboxed" />
+  <StatCard label="Layers" value="3" />
+</div>
+
+Three layers ship inside every `.mdxz`:
+
+1. **Text** — the prose you're reading. Always plaintext, always vectorizable,
+   never encrypted. A search indexer or RAG pipeline can read it directly.
+2. **Executable** — compiled JS modules (like the `StatCard` above) that render
+   and run inside the viewer's sandbox.
+3. **Manifest** — metadata, declared capabilities, and (eventually) a
+   cryptographic signature so recipients can verify who made the file.
+
+## The thin viewer
+
+Notice what you *don't* see: no toolbar, no menus, no chrome competing with the
+document. Move your cursor to the top of the window — a small control pill fades
+in for zoom, share, and the (forthcoming) Edit toggle. Move away, and it fades
+back out. The document is the window.
+
+## What's next
+
+- **Editor mode** — write MDX directly, with a live preview alongside.
+- **AI authoring** — *"build me a graph generator"* and it becomes part of this file.
+- **Multi-format rendering** — D2, Mermaid, draw.io diagrams inline.
+- **Sharing & signing** — package a document, send it, and let recipients
+  verify it came from you.
+
+This is layer one. The foundation is set; the document is the experience.
+
+---
+
+*PrizmaPage · layer one · 2026*

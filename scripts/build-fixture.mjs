@@ -28,6 +28,7 @@ function newPackageWithManifest(mdxPath, manifest) {
 
 async function buildAll() {
   mkdirSync(join(root, "src-tauri", "tests", "fixtures"), { recursive: true });
+  mkdirSync(join(root, "src-tauri", "resources"), { recursive: true });
 
   // hello: prose + a real compiled build so the runner has something to execute.
   const helloZip = newPackageWithManifest(join(root, "fixtures", "hello.mdx"), {
@@ -54,7 +55,21 @@ async function buildAll() {
   privZip.addFile("build/main.js", Buffer.from(privCompiled));
   privZip.writeZip(join(root, "src-tauri", "tests", "fixtures", "privileged.mdxz"));
 
-  console.log("Built fixtures: hello.mdxz, privileged.mdxz");
+  // welcome: the first-run intro doc, shipped as a BUNDLED ASSET (not just a
+  // test fixture) so the EmptyState can open it without any user file present.
+  const welcomeZip = newPackageWithManifest(join(root, "fixtures", "welcome.mdx"), {
+    version: "0.1.0",
+    origin_domain: "prizmapage.app",
+    capabilities: [],
+    signature: null,
+  });
+  const welcomeCompiled = await compileMdx(join(root, "fixtures", "welcome.mdx"));
+  welcomeZip.addFile("build/main.js", Buffer.from(welcomeCompiled));
+  // Ship to both locations: test fixture (for smoke tests) and bundled resource.
+  welcomeZip.writeZip(join(root, "src-tauri", "tests", "fixtures", "welcome.mdxz"));
+  welcomeZip.writeZip(join(root, "src-tauri", "resources", "welcome.mdxz"));
+
+  console.log("Built fixtures: hello.mdxz, privileged.mdxz, welcome.mdxz");
 }
 
 buildAll().catch((err) => {

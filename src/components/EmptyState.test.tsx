@@ -3,29 +3,23 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { EmptyState } from "./EmptyState";
 
 describe("EmptyState", () => {
+  const baseProps = () => ({
+    recents: [] as Array<{ path: string; name: string; opened_at: number }>,
+    onOpen: vi.fn(),
+    onDrop: vi.fn(),
+    onOpenRecent: vi.fn(),
+    onOpenWelcome: vi.fn(),
+  });
+
   it("renders the app mark and primary affordances", () => {
-    render(
-      <EmptyState
-        recents={[]}
-        onOpen={vi.fn()}
-        onDrop={vi.fn()}
-        onOpenRecent={vi.fn()}
-      />
-    );
+    render(<EmptyState {...baseProps()} />);
     expect(screen.getByText("PrizmaPage")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /open/i })).toBeInTheDocument();
     expect(screen.getByText(/drop a \.mdxz file/i)).toBeInTheDocument();
   });
 
   it("greys out Recent when there are none", () => {
-    render(
-      <EmptyState
-        recents={[]}
-        onOpen={vi.fn()}
-        onDrop={vi.fn()}
-        onOpenRecent={vi.fn()}
-      />
-    );
+    render(<EmptyState {...baseProps()} />);
     const recentBtn = screen.getByText(/Recent/);
     expect(recentBtn).toBeDisabled();
   });
@@ -33,13 +27,11 @@ describe("EmptyState", () => {
   it("enables Recent and lists entries when present", () => {
     render(
       <EmptyState
+        {...baseProps()}
         recents={[
           { path: "/a.mdxz", name: "alpha", opened_at: 1 },
           { path: "/b.mdxz", name: "beta", opened_at: 2 },
         ]}
-        onOpen={vi.fn()}
-        onDrop={vi.fn()}
-        onOpenRecent={vi.fn()}
       />
     );
     expect(screen.getByText("Recent (2)")).not.toBeDisabled();
@@ -50,11 +42,18 @@ describe("EmptyState", () => {
   });
 
   it("calls onOpen when Open clicked", () => {
-    const onOpen = vi.fn();
-    render(
-      <EmptyState recents={[]} onOpen={onOpen} onDrop={vi.fn()} onOpenRecent={vi.fn()} />
-    );
+    const props = baseProps();
+    render(<EmptyState {...props} />);
     fireEvent.click(screen.getByRole("button", { name: /open/i }));
-    expect(onOpen).toHaveBeenCalledOnce();
+    expect(props.onOpen).toHaveBeenCalledOnce();
+  });
+
+  it("renders the welcome affordance and calls onOpenWelcome", () => {
+    const props = baseProps();
+    render(<EmptyState {...props} />);
+    const welcomeLink = screen.getByText(/welcome document/i);
+    expect(welcomeLink).toBeInTheDocument();
+    fireEvent.click(welcomeLink);
+    expect(props.onOpenWelcome).toHaveBeenCalledOnce();
   });
 });

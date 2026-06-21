@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useOpenDocument } from "./hooks/useOpenDocument";
-import { listRecents, shareDocumentPath, type RecentEntry } from "./lib/recents";
+import { listRecents, shareDocumentPath, welcomePath, type RecentEntry } from "./lib/recents";
 import { EmptyState } from "./components/EmptyState";
 import { DocumentView } from "./components/DocumentView";
 
@@ -13,6 +13,12 @@ export function App() {
   }, [open.state]); // refresh recents when the open state changes
 
   const filename = open.path?.split("/").pop() ?? "document.mdxz";
+
+  const openWelcome = () => {
+    welcomePath()
+      .then((p) => open.openRecent(p))
+      .catch(() => {});
+  };
 
   if (open.state === "document" && open.document) {
     return (
@@ -35,6 +41,7 @@ export function App() {
       onOpen={open.openViaPicker}
       onDrop={open.openViaDrop}
       onOpenRecent={open.openRecent}
+      onOpenWelcome={openWelcome}
     />
   );
 }

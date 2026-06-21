@@ -6,6 +6,8 @@ dist/
 src-tauri/target/
 # Fixtures are build artifacts: regenerate with `npm run build:fixture`
 src-tauri/tests/fixtures/*.mdxz
+# Bundled welcome doc is also a build artifact
+src-tauri/resources/*.mdxz
 # TypeScript incremental build cache
 *.tsbuildinfo
 .superpowers/

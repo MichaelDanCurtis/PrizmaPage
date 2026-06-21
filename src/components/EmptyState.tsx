@@ -6,9 +6,10 @@ interface Props {
   onOpen: () => void;
   onDrop: (path: string) => void;
   onOpenRecent: (path: string) => void;
+  onOpenWelcome: () => void;
 }
 
-export function EmptyState({ recents, onOpen, onDrop, onOpenRecent }: Props) {
+export function EmptyState({ recents, onOpen, onDrop, onOpenRecent, onOpenWelcome }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
@@ -139,6 +140,21 @@ export function EmptyState({ recents, onOpen, onDrop, onOpenRecent }: Props) {
       <div style={{ marginTop: 18, font: "var(--font-small)", color: "var(--text-faint)" }}>
         {dragOver ? "Drop to open" : "or drop a .mdxz file anywhere"}
       </div>
+      <button
+        onClick={onOpenWelcome}
+        style={{
+          marginTop: 20,
+          background: "transparent",
+          border: "none",
+          font: "var(--font-small)",
+          color: "var(--accent)",
+          cursor: "pointer",
+          textDecoration: "underline",
+          textUnderlineOffset: "2px",
+        }}
+      >
+        First time? Read the welcome document
+      </button>
     </div>
   );
 }

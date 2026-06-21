@@ -314,6 +314,17 @@ fn recents_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     Some(dir.join("recents.json"))
 }
 
+/// Returns the absolute path to the bundled welcome.mdxz (a first-run intro
+/// doc shipped as a Tauri resource). The frontend opens it via open_document
+/// just like any user-picked file.
+#[tauri::command]
+fn welcome_document_path(app: tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    app.path()
+        .resolve("resources/welcome.mdxz", tauri::path::BaseDirectory::Resource)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -339,7 +350,8 @@ pub fn run() {
             open_file_dialog,
             recent_documents,
             add_recent_document,
-            share_document_path
+            share_document_path,
+            welcome_document_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running PrizmaPage");
