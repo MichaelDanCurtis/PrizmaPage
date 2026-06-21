@@ -3,7 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, useRef, useState } from "react";
 import { listComponents } from "../registry/ComponentRegistry";
-import { makeComponentNode } from "../registry/componentNode";
+import { ComponentNode } from "../registry/componentNode";
 import { docFromJson, type Doc } from "../registry/serializer";
 import { SlashMenu } from "./SlashMenu";
 
@@ -14,10 +14,6 @@ interface Props {
 }
 
 export function WysiwygSurface({ doc, onChange, onEditorReady }: Props) {
-  const componentNodes = listComponents()
-    .filter((c) => c.category === "component")
-    .map((c) => makeComponentNode(c.name));
-
   // Slash menu state.
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
@@ -27,7 +23,7 @@ export function WysiwygSurface({ doc, onChange, onEditorReady }: Props) {
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder: "Type / for commands, or just start writing…" }),
-      ...componentNodes,
+      ComponentNode,
     ],
     content: doc.json,
     onUpdate: ({ editor }) => {
@@ -111,12 +107,12 @@ export function WysiwygSurface({ doc, onChange, onEditorReady }: Props) {
     // TipTap's markdown shortcuts convert. For component templates, insert as
     // a node.
     if (template.startsWith("<")) {
-      // Component — extract name and insert as node.
+      // Component — insert as a generic "component" node with _name + _jsx attrs.
       const nameMatch = template.match(/^<(\w+)/);
       const name = nameMatch?.[1] ?? "Component";
       editor.commands.insertContent({
-        type: name, // must match the registered node name exactly
-        attrs: { jsx: template },
+        type: "component",
+        attrs: { _name: name, _jsx: template },
       });
     } else {
       editor.commands.insertContent(template);

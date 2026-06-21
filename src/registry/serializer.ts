@@ -181,7 +181,10 @@ function parseInline(text: string): DocNode[] {
   return nodes.length ? nodes : [{ type: "text", text }];
 }
 
-/// Parse a JSX component tag line into a DocNode (attrs only; children added by caller).
+/// Parse a JSX component tag line into a DocNode.
+/// Uses a generic "component" node type so TipTap only needs to register ONE
+/// custom node (not one per component). The actual component name is stored
+/// as an attr so the serializer can emit the right JSX tag.
 function parseJsxComponent(tag: string): DocNode {
   const nameMatch = tag.match(/^<(\w+)/);
   const name = nameMatch?.[1] ?? "Component";
@@ -191,7 +194,12 @@ function parseJsxComponent(tag: string): DocNode {
   while ((am = attrRegex.exec(tag)) !== null) {
     attrs[am[1]] = am[2];
   }
-  return { type: name, attrs };
+  // Store the full original JSX and the component name as attrs on a generic
+  // "component" node. TipTap registers a single "component" node type that
+  // renders whichever registered component the name attr points to.
+  attrs["_name"] = name;
+  attrs["_jsx"] = tag.replace(/\/>$/, " />").endsWith("/>") ? tag : tag;
+  return { type: "component", attrs };
 }
 
 /// Serialize a doc back to MDX source.
@@ -232,16 +240,22 @@ function serializeNode(node: DocNode): string {
     case "listItem":
       return serializeInline(node.content?.[0]?.content ?? []);
     default: {
-      // Component node — name === node.type.
-      const attrs = node.attrs ?? {};
-      const attrStr = Object.entries(attrs)
-        .map(([k, v]) => `${k}="${String(v)}"`)
-        .join(" ");
-      if (node.content && node.content.length > 0) {
-        const inner = serializeInline(node.content[0]?.content ?? []);
-        return `<${node.type}${attrStr ? " " + attrStr : ""}>${inner}</${node.type}>`;
+      // Component node — generic "component" type with _name + _jsx attrs.
+      if (node.type === "component") {
+        const name = (node.attrs?._name as string) ?? "Component";
+        // Filter out internal attrs (_name, _jsx) for the serialized JSX.
+        const publicAttrs = Object.entries(node.attrs ?? {})
+          .filter(([k]) => !k.startsWith("_"))
+          .map(([k, v]) => `${k}="${String(v)}"`)
+          .join(" ");
+        if (node.content && node.content.length > 0) {
+          const inner = serializeInline(node.content[0]?.content ?? []);
+          return `<${name}${publicAttrs ? " " + publicAttrs : ""}>${inner}</${name}>`;
+        }
+        return `<${name}${publicAttrs ? " " + publicAttrs : ""} />`;
       }
-      return `<${node.type}${attrStr ? " " + attrStr : ""} />`;
+      // Unknown node type — serialize as paragraph fallback.
+      return serializeInline(node.content ?? []);
     }
   }
 }

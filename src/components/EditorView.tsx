@@ -89,8 +89,8 @@ export function EditorView({ document: initialDoc, filename, path, onClose }: Pr
       const nameMatch = template.match(/^<(\w+)/);
       const name = nameMatch?.[1] ?? "Component";
       tiptapEditor.commands.insertContent({
-        type: name,
-        attrs: { jsx: template },
+        type: "component",
+        attrs: { _name: name, _jsx: template },
       });
     } else {
       tiptapEditor.commands.insertContent(template);
@@ -116,11 +116,10 @@ export function EditorView({ document: initialDoc, filename, path, onClose }: Pr
         }
       }
       if (nodePos >= 0) {
-        // Replace the node with updated attrs.
         tiptapEditor.commands.deleteRange({ from: nodePos, to: nodePos + nodeSize });
         tiptapEditor.commands.insertContentAt(nodePos, {
-          type: peekComponent,
-          attrs: { jsx },
+          type: "component",
+          attrs: { _name: peekComponent, _jsx: jsx },
         });
       }
     }
