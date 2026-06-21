@@ -16,10 +16,13 @@ describe("useOpenDocument", () => {
   });
 
   it("transitions to document state on successful open", async () => {
-    const invoke = vi.fn().mockResolvedValue({
-      manifest: { version: "0.1.0", origin_domain: null, capabilities: [], signature: null },
-      content_md: "# Hello",
-      build_main_js: null,
+    const invoke = vi.fn().mockImplementation((cmd: string) => {
+      if (cmd === "grant_declared_capabilities") return Promise.resolve(undefined);
+      return Promise.resolve({
+        manifest: { version: "0.1.0", origin_domain: null, capabilities: [], signature: null },
+        content_md: "# Hello",
+        build_main_js: null,
+      });
     });
     const dialogOpen = vi.fn().mockResolvedValue("/abs/hello.mdxz");
     const addRecent = vi.fn().mockResolvedValue(undefined);
@@ -53,13 +56,15 @@ describe("useOpenDocument", () => {
     expect(result.current.error).toMatch(/\.mdxz/);
     expect(invoke).not.toHaveBeenCalled();
   });
-});
 
   it("transitions to editing when openEditor is called from document state", async () => {
-    const invoke = vi.fn().mockResolvedValue({
-      manifest: { version: "0.1.0", origin_domain: null, capabilities: [], signature: null },
-      content_md: "# Hello",
-      build_main_js: null,
+    const invoke = vi.fn().mockImplementation((cmd: string) => {
+      if (cmd === "grant_declared_capabilities") return Promise.resolve(undefined);
+      return Promise.resolve({
+        manifest: { version: "0.1.0", origin_domain: null, capabilities: [], signature: null },
+        content_md: "# Hello",
+        build_main_js: null,
+      });
     });
     vi.doMock("@tauri-apps/api/core", () => ({ invoke }));
     vi.doMock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
@@ -77,10 +82,13 @@ describe("useOpenDocument", () => {
   });
 
   it("transitions back to document state on closeEditor", async () => {
-    const invoke = vi.fn().mockResolvedValue({
-      manifest: { version: "0.1.0", origin_domain: null, capabilities: [], signature: null },
-      content_md: "# Hello",
-      build_main_js: null,
+    const invoke = vi.fn().mockImplementation((cmd: string) => {
+      if (cmd === "grant_declared_capabilities") return Promise.resolve(undefined);
+      return Promise.resolve({
+        manifest: { version: "0.1.0", origin_domain: null, capabilities: [], signature: null },
+        content_md: "# Hello",
+        build_main_js: null,
+      });
     });
     vi.doMock("@tauri-apps/api/core", () => ({ invoke }));
     vi.doMock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
@@ -91,7 +99,9 @@ describe("useOpenDocument", () => {
     await act(async () => {
       await result.current.openRecent("/abs/hello.mdxz");
     });
+    await waitFor(() => expect(result.current.state).toBe("document"));
     act(() => result.current.openEditor());
     act(() => result.current.closeEditor());
     expect(result.current.state).toBe("document");
   });
+});
