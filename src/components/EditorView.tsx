@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import type { Editor } from "@tiptap/react";
 import type { OpenedDocument } from "../lib/package";
 import { compileMdx } from "../lib/compile";
 import { serializeDoc, parseMdxToDoc, type Doc } from "../registry/serializer";
@@ -9,6 +10,10 @@ import { WysiwygSurface } from "./WysiwygSurface";
 import { RawEditor } from "./RawEditor";
 import { CodePeek } from "./CodePeek";
 import { TrustFooter } from "./TrustFooter";
+
+interface ComponentActivateEvent extends Event {
+  detail: { componentName: string; jsx: string };
+}
 
 interface Props {
   document: OpenedDocument;
@@ -23,14 +28,21 @@ export function EditorView({ document: initialDoc, filename, path, onClose }: Pr
   const [rawSource, setRawSource] = useState<string>(initialDoc.content_md);
   const [peekComponent, setPeekComponent] = useState<string | null>(null);
   const [peekJsx, setPeekJsx] = useState<string>("");
+  const [tiptapEditor, setTiptapEditor] = useState<Editor | null>(null);
+
+  // Listen for component double-click events from node views.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as ComponentActivateEvent).detail;
+      setPeekComponent(detail.componentName);
+      setPeekJsx(detail.jsx);
+    };
+    window.addEventListener("prizma:component-activate", handler);
+    return () => window.removeEventListener("prizma:component-activate", handler);
+  }, []);
 
   const handleChange = (newDoc: Doc) => {
     setDoc(newDoc);
-    editor.markDirty();
-  };
-
-  const handleRawChange = (v: string) => {
-    setRawSource(v);
     editor.markDirty();
   };
 
@@ -68,21 +80,49 @@ export function EditorView({ document: initialDoc, filename, path, onClose }: Pr
     }
   };
 
+  // Insert at cursor via the TipTap editor instance.
   const handleInsert = (template: string) => {
-    if (editor.mode !== "wysiwyg") return;
-    const newDoc = parseMdxToDoc(serializeDoc(doc) + "\n" + template + "\n");
-    setDoc(newDoc);
+    if (!tiptapEditor) return;
+    tiptapEditor.commands.focus();
+    if (template.startsWith("<")) {
+      const nameMatch = template.match(/^<(\w+)/);
+      const name = nameMatch?.[1] ?? "Component";
+      tiptapEditor.commands.insertContent({
+        type: name,
+        attrs: { jsx: template },
+      });
+    } else {
+      tiptapEditor.commands.insertContent(template);
+    }
     editor.markDirty();
   };
 
-  const handleComponentActivate = (componentName: string) => {
-    setPeekComponent(componentName);
-    setPeekJsx(`<${componentName} />`);
-  };
-
   const handlePeekApply = (jsx: string) => {
-    const source = serializeDoc(doc).replace(`<${peekComponent} />`, jsx);
-    setDoc(parseMdxToDoc(source));
+    // Update the currently-selected component node's attrs in TipTap.
+    if (tiptapEditor && peekComponent) {
+      tiptapEditor.commands.focus();
+      // Find the component node in the selection and update its jsx attr.
+      const { state } = tiptapEditor;
+      const { $from } = state.selection;
+      let nodePos = -1;
+      let nodeSize = 0;
+      for (let d = $from.depth; d > 0; d--) {
+        const node = $from.node(d);
+        if (node.type.name === peekComponent) {
+          nodePos = $from.before(d);
+          nodeSize = node.nodeSize;
+          break;
+        }
+      }
+      if (nodePos >= 0) {
+        // Replace the node with updated attrs.
+        tiptapEditor.commands.deleteRange({ from: nodePos, to: nodePos + nodeSize });
+        tiptapEditor.commands.insertContentAt(nodePos, {
+          type: peekComponent,
+          attrs: { jsx },
+        });
+      }
+    }
     setPeekComponent(null);
     editor.markDirty();
   };
@@ -101,9 +141,13 @@ export function EditorView({ document: initialDoc, filename, path, onClose }: Pr
       />
       <div style={{ flex: 1, overflow: "auto", position: "relative" }}>
         {editor.mode === "wysiwyg" ? (
-          <WysiwygSurface doc={doc} onChange={handleChange} onComponentActivate={handleComponentActivate} />
+          <WysiwygSurface
+            doc={doc}
+            onChange={handleChange}
+            onEditorReady={setTiptapEditor}
+          />
         ) : (
-          <RawEditor value={rawSource} onChange={handleRawChange} />
+          <RawEditor value={rawSource} onChange={(v) => { setRawSource(v); editor.markDirty(); }} />
         )}
       </div>
       <TrustFooter filename={filename} signatureDomain={initialDoc.manifest.origin_domain} />

@@ -28,7 +28,7 @@ export function makeComponentNode(componentName: string) {
     },
 
     addNodeView() {
-      return ReactNodeViewRenderer(({ node, selected }) => {
+      return ReactNodeViewRenderer(({ node, selected, deleteNode }) => {
         const jsx = (node.attrs.jsx as string) ?? `<${componentName} />`;
         const def = getComponent(componentName);
         const attrs: Record<string, unknown> = {};
@@ -40,11 +40,20 @@ export function makeComponentNode(componentName: string) {
         const Rendered = def?.render ?? (() => <div>Unknown: {componentName}</div>);
         return (
           <NodeViewWrapper
+            onDoubleClick={() => {
+              // Dispatch a custom event the EditorView listens for.
+              window.dispatchEvent(
+                new CustomEvent("prizma:component-activate", {
+                  detail: { componentName, jsx },
+                })
+              );
+            }}
             style={{
               outline: selected ? "2px solid var(--accent)" : "1px dashed var(--accent-border)",
               borderRadius: "var(--radius-sm)",
               margin: "8px 0",
               position: "relative",
+              cursor: "pointer",
             }}
           >
             <div
