@@ -1,0 +1,374 @@
+import { useState, useRef, useEffect } from "react";
+import type { Editor } from "@tiptap/react";
+import { listComponents } from "../registry/ComponentRegistry";
+
+interface Props {
+  editor: Editor | null;
+  onInsert: (template: string) => void;
+}
+
+/// One toolbar button with optional active state.
+function TBtn({
+  label,
+  title,
+  active,
+  disabled,
+  onClick,
+}: {
+  label: React.ReactNode;
+  title: string;
+  active?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      title={title}
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        background: active ? "var(--accent-soft)" : "transparent",
+        color: active ? "var(--accent)" : "var(--text-muted)",
+        border: "none",
+        padding: "4px 8px",
+        borderRadius: "var(--radius-sm)",
+        fontSize: 12,
+        fontWeight: active ? 600 : 500,
+        cursor: disabled ? "not-allowed" : "pointer",
+        fontFamily: "var(--font-sans)",
+        minWidth: 28,
+        opacity: disabled ? 0.4 : 1,
+        transition: "background 100ms",
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) e.currentTarget.style.background = active ? "var(--accent-soft)" : "var(--bg-muted)";
+      }}
+      onMouseLeave={(e) => {
+        if (!disabled) e.currentTarget.style.background = active ? "var(--accent-soft)" : "transparent";
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+/// A dropdown subtool — click the trigger, a flyout appears below.
+function Dropdown({
+  trigger,
+  children,
+  align = "left",
+}: {
+  trigger: React.ReactNode;
+  children: (close: () => void) => React.ReactNode;
+  align?: "left" | "right";
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <TBtn label={trigger} title="" onClick={() => setOpen((v) => !v)} active={open} />
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            [align]: 0,
+            marginTop: 4,
+            background: "var(--bg)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            padding: 4,
+            zIndex: 200,
+            minWidth: 160,
+          }}
+        >
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/// A flyout menu row.
+function MenuRow({
+  icon,
+  label,
+  shortcut,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  shortcut?: string;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        padding: "5px 10px",
+        cursor: "pointer",
+        borderRadius: "var(--radius-sm)",
+        display: "flex",
+        gap: 8,
+        alignItems: "center",
+        fontSize: 12,
+        color: label.includes("AI") ? "var(--accent)" : "var(--text)",
+        fontWeight: label.includes("AI") ? 500 : 400,
+        fontFamily: "var(--font-sans)",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent-soft)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      <span style={{ width: 16, textAlign: "center", fontSize: 12 }}>{icon}</span>
+      <span style={{ flex: 1 }}>{label}</span>
+      {shortcut && <span style={{ color: "var(--text-faint)", fontSize: 10 }}>{shortcut}</span>}
+    </div>
+  );
+}
+
+const DIVIDER_STYLE: React.CSSProperties = {
+  width: 1,
+  background: "var(--border)",
+  height: 20,
+  margin: "0 2px",
+  flexShrink: 0,
+};
+
+export function EditorToolbar({ editor, onInsert }: Props) {
+  const components = listComponents().filter((c) => c.category === "component");
+
+  if (!editor) {
+    return (
+      <div
+        style={{
+          padding: "4px 12px",
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          borderBottom: "1px solid var(--border-soft)",
+          background: "var(--bg)",
+          height: 34,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        padding: "4px 12px",
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        borderBottom: "1px solid var(--border-soft)",
+        background: "var(--bg)",
+        minHeight: 34,
+        fontFamily: "var(--font-sans)",
+      }}
+    >
+      {/* Text type dropdown */}
+      <Dropdown
+        trigger={
+          <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            {editor.isActive("heading", { level: 2 })
+              ? "H₂"
+              : editor.isActive("heading", { level: 3 })
+              ? "H₃"
+              : "Text"}
+            <span style={{ fontSize: 8, opacity: 0.6 }}>▾</span>
+          </span>
+        }
+      >
+        {(close) => (
+          <>
+            <MenuRow
+              icon="¶"
+              label="Normal text"
+              onClick={() => {
+                editor.chain().focus().setParagraph().run();
+                close();
+              }}
+            />
+            <MenuRow
+              icon="H₂"
+              label="Heading 2"
+              onClick={() => {
+                editor.chain().focus().toggleHeading({ level: 2 }).run();
+                close();
+              }}
+            />
+            <MenuRow
+              icon="H₃"
+              label="Heading 3"
+              onClick={() => {
+                editor.chain().focus().toggleHeading({ level: 3 }).run();
+                close();
+              }}
+            />
+          </>
+        )}
+      </Dropdown>
+
+      <div style={DIVIDER_STYLE} />
+
+      {/* Inline formatting */}
+      <TBtn
+        label={<strong>B</strong>}
+        title="Bold (Cmd+B)"
+        active={editor.isActive("bold")}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      />
+      <TBtn
+        label={<em>I</em>}
+        title="Italic (Cmd+I)"
+        active={editor.isActive("italic")}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+      />
+      <TBtn
+        label={<code style={{ fontSize: 11 }}>{"</>"}</code>}
+        title="Inline code"
+        active={editor.isActive("code")}
+        onClick={() => editor.chain().focus().toggleCode().run()}
+      />
+
+      <div style={DIVIDER_STYLE} />
+
+      {/* List dropdown */}
+      <Dropdown
+        trigger={
+          <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            ☰
+            <span style={{ fontSize: 8, opacity: 0.6 }}>▾</span>
+          </span>
+        }
+      >
+        {(close) => (
+          <>
+            <MenuRow
+              icon="•"
+              label="Bulleted list"
+              onClick={() => {
+                editor.chain().focus().toggleBulletList().run();
+                close();
+              }}
+            />
+            <MenuRow
+              icon="1."
+              label="Numbered list"
+              onClick={() => {
+                editor.chain().focus().toggleOrderedList().run();
+                close();
+              }}
+            />
+          </>
+        )}
+      </Dropdown>
+
+      <TBtn
+        label='"'
+        title="Quote"
+        active={editor.isActive("blockquote")}
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+      />
+
+      <div style={DIVIDER_STYLE} />
+
+      {/* Insert dropdown — components + AI */}
+      <Dropdown
+        trigger={
+          <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            ✦ Insert
+            <span style={{ fontSize: 8, opacity: 0.6 }}>▾</span>
+          </span>
+        }
+      >
+        {(close) => (
+          <>
+            <div
+              style={{
+                color: "var(--text-faint)",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+                fontSize: 9,
+                padding: "4px 8px 2px",
+              }}
+            >
+              Components
+            </div>
+            {components.map((c) => (
+              <MenuRow
+                key={c.name}
+                icon={c.icon}
+                label={c.label}
+                onClick={() => {
+                  onInsert(c.insertTemplate());
+                  close();
+                }}
+              />
+            ))}
+            <MenuRow
+              icon="⎌"
+              label="Divider"
+              onClick={() => {
+                onInsert("<Divider />");
+                close();
+              }}
+            />
+            <div
+              style={{
+                borderTop: "1px solid var(--border-soft)",
+                marginTop: 4,
+                paddingTop: 4,
+              }}
+            />
+            <MenuRow
+              icon="✨"
+              label="AI component…"
+              onClick={() => {
+                alert("AI component generation comes in Layer 3.");
+                close();
+              }}
+            />
+          </>
+        )}
+      </Dropdown>
+
+      {/* Divider quick button */}
+      <TBtn
+        label="⎌"
+        title="Divider"
+        onClick={() => onInsert("<Divider />")}
+      />
+
+      {/* Undo / Redo */}
+      <div style={{ marginLeft: "auto", display: "flex", gap: 2 }}>
+        <TBtn
+          label="↶"
+          title="Undo (Cmd+Z)"
+          disabled={!editor.can().undo()}
+          onClick={() => editor.chain().focus().undo().run()}
+        />
+        <TBtn
+          label="↷"
+          title="Redo (Cmd+Shift+Z)"
+          disabled={!editor.can().redo()}
+          onClick={() => editor.chain().focus().redo().run()}
+        />
+      </div>
+    </div>
+  );
+}

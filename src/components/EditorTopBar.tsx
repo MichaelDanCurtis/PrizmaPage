@@ -1,5 +1,3 @@
-import { InsertButton } from "./InsertButton";
-
 interface Props {
   filename: string;
   dirty: boolean;
@@ -7,11 +5,10 @@ interface Props {
   mode: "wysiwyg" | "raw";
   onSave: () => void;
   onToggleMode: () => void;
-  onInsert: (template: string) => void;
   onClose: () => void;
 }
 
-export function EditorTopBar({ filename, dirty, saving, mode, onSave, onToggleMode, onInsert, onClose }: Props) {
+export function EditorTopBar({ filename, dirty, saving, mode, onSave, onToggleMode, onClose }: Props) {
   return (
     <div
       style={{
@@ -59,7 +56,6 @@ export function EditorTopBar({ filename, dirty, saving, mode, onSave, onToggleMo
         >
           {mode === "wysiwyg" ? "Raw" : "Write"}
         </button>
-        <InsertButton onSelect={onInsert} />
         <div onClick={onClose} style={{ color: "var(--text-faint)", cursor: "pointer", padding: "4px 8px", fontSize: 14 }}>
           ✕
         </div>

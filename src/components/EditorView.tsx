@@ -6,6 +6,7 @@ import { compileMdx } from "../lib/compile";
 import { serializeDoc, parseMdxToDoc, type Doc } from "../registry/serializer";
 import { useEditorState } from "../hooks/useEditorState";
 import { EditorTopBar } from "./EditorTopBar";
+import { EditorToolbar } from "./EditorToolbar";
 import { WysiwygSurface } from "./WysiwygSurface";
 import { RawEditor } from "./RawEditor";
 import { CodePeek } from "./CodePeek";
@@ -136,9 +137,9 @@ export function EditorView({ document: initialDoc, filename, path, onClose }: Pr
         mode={editor.mode}
         onSave={handleSave}
         onToggleMode={handleToggleMode}
-        onInsert={handleInsert}
         onClose={onClose}
       />
+      {editor.mode === "wysiwyg" && <EditorToolbar editor={tiptapEditor} onInsert={handleInsert} />}
       <div style={{ flex: 1, overflow: "auto", position: "relative" }}>
         {editor.mode === "wysiwyg" ? (
           <WysiwygSurface
