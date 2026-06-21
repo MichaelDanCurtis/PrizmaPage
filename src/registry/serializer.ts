@@ -265,6 +265,6 @@ export function docToJson(doc: Doc): DocNode {
   return doc.json;
 }
 
-export function docFromJson(json: DocNode): Doc {
-  return { json };
+export function docFromJson(json: DocNode | Record<string, unknown>): Doc {
+  return { json: json as DocNode };
 }
