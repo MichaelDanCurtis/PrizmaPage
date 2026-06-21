@@ -2,11 +2,11 @@ import type { FC } from "react";
 import type { ComponentProps } from "../../registry/ComponentRegistry";
 
 interface StatCardProps extends ComponentProps {
-  label: string;
-  value: string;
+  label?: string;
+  value?: string;
 }
 
-export const StatCard: FC<StatCardProps> = ({ label, value }) => (
+export const StatCard: FC<StatCardProps> = ({ label = "Label", value = "Value" }) => (
   <div
     style={{
       background: "var(--accent-soft)",
