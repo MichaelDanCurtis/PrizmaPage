@@ -54,3 +54,44 @@ describe("useOpenDocument", () => {
     expect(invoke).not.toHaveBeenCalled();
   });
 });
+
+  it("transitions to editing when openEditor is called from document state", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      manifest: { version: "0.1.0", origin_domain: null, capabilities: [], signature: null },
+      content_md: "# Hello",
+      build_main_js: null,
+    });
+    vi.doMock("@tauri-apps/api/core", () => ({ invoke }));
+    vi.doMock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+    vi.doMock("../lib/recents", () => ({ addRecent: vi.fn().mockResolvedValue(undefined) }));
+    const { useOpenDocument } = await import("./useOpenDocument");
+    const { result } = renderHook(() => useOpenDocument());
+
+    await act(async () => {
+      await result.current.openRecent("/abs/hello.mdxz");
+    });
+    await waitFor(() => expect(result.current.state).toBe("document"));
+
+    act(() => result.current.openEditor());
+    expect(result.current.state).toBe("editing");
+  });
+
+  it("transitions back to document state on closeEditor", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      manifest: { version: "0.1.0", origin_domain: null, capabilities: [], signature: null },
+      content_md: "# Hello",
+      build_main_js: null,
+    });
+    vi.doMock("@tauri-apps/api/core", () => ({ invoke }));
+    vi.doMock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
+    vi.doMock("../lib/recents", () => ({ addRecent: vi.fn().mockResolvedValue(undefined) }));
+    const { useOpenDocument } = await import("./useOpenDocument");
+    const { result } = renderHook(() => useOpenDocument());
+
+    await act(async () => {
+      await result.current.openRecent("/abs/hello.mdxz");
+    });
+    act(() => result.current.openEditor());
+    act(() => result.current.closeEditor());
+    expect(result.current.state).toBe("document");
+  });

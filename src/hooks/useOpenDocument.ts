@@ -4,7 +4,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openDocument, type OpenedDocument } from "../lib/package";
 import { addRecent } from "../lib/recents";
 
-export type OpenState = "empty" | "loading" | "document";
+export type OpenState = "empty" | "loading" | "document" | "editing";
 
 export interface OpenDocumentState {
   state: OpenState;
@@ -14,6 +14,8 @@ export interface OpenDocumentState {
   openViaPicker: () => Promise<void>;
   openViaDrop: (path: string) => Promise<void>;
   openRecent: (path: string) => Promise<void>;
+  openEditor: () => void;
+  closeEditor: () => void;
   close: () => void;
 }
 
@@ -78,5 +80,24 @@ export function useOpenDocument(): OpenDocumentState {
     setState("empty");
   }, []);
 
-  return { state, document, path, error, openViaPicker, openViaDrop, openRecent, close };
+  const openEditor = useCallback(() => {
+    setState("editing");
+  }, []);
+
+  const closeEditor = useCallback(() => {
+    setState("document");
+  }, []);
+
+  return {
+    state,
+    document,
+    path,
+    error,
+    openViaPicker,
+    openViaDrop,
+    openRecent,
+    openEditor,
+    closeEditor,
+    close,
+  };
 }
