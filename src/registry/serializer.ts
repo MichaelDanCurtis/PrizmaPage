@@ -131,13 +131,15 @@ export function parseMdxToDoc(mdx: string): Doc {
       content.push(node);
       continue;
     }
-    // Default: paragraph.
+    // Default: paragraph. Gather consecutive non-block-start lines.
     const paraLines: string[] = [];
     while (i < lines.length && lines[i].trim() !== "" && !isBlockStart(lines[i])) {
       paraLines.push(lines[i]);
       i++;
     }
-    content.push({ type: "paragraph", content: parseInline(paraLines.join(" ")) });
+    // If no lines were gathered (edge case), push the single line.
+    const text = (paraLines.length > 0 ? paraLines : [line]).join(" ");
+    content.push({ type: "paragraph", content: parseInline(text) });
   }
   return { json: { type: "doc", content } };
 }
