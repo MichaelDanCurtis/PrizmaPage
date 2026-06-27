@@ -25,6 +25,7 @@ import { AiPanel } from "./AiPanel";
 import { useResizablePanel } from "../hooks/useResizablePanel";
 import { signingGenerateKeypair, signingSign } from "../lib/signing";
 import { computeStats, type DocStats } from "../lib/docStats";
+import { computeReadability, type Readability } from "../lib/readability";
 import { printDocument } from "../lib/print";
 import { buildHtmlExport, buildMarkdownExport, downloadBlob } from "../lib/exportDoc";
 import { vaultSnapshot } from "../lib/history";
@@ -78,6 +79,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const [aiPanelOpen, setAiPanelOpen] = useState(true);
   const [selection, setSelection] = useState<string | null>(null);
   const [stats, setStats] = useState<DocStats>(() => computeStats(serializeDoc(doc)));
+  const [readability, setReadability] = useState<Readability | null>(() => computeReadability(serializeDoc(doc)));
   const panel = useResizablePanel("prizma.ai.panelWidth", 320, 240, 480);
   // SP2: collapsible file tree + nav panes. Widths persist in localStorage.
   const vault = useVault();
@@ -273,6 +275,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
     const recompute = () => {
       const text = tiptapEditor.state.doc.textBetween(0, tiptapEditor.state.doc.content.size, " ");
       setStats(computeStats(text));
+      setReadability(computeReadability(text));
     };
     recompute();
     tiptapEditor.on("update", recompute);
@@ -745,7 +748,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         </CollapsiblePane>
         )}
       </div>
-      {!focus.enabled && <DocStatsBar stats={stats} selectionStats={selectionStats} />}
+      {!focus.enabled && <DocStatsBar stats={stats} selectionStats={selectionStats} readability={readability} />}
       {!focus.enabled && <GoalBar words={stats.words} goal={goal} onSetGoal={editGoal} />}
       <TrustFooter filename={filename} originDomain={initialDoc.manifest.origin_domain} verifyResult={null} />
       <McpServerStatus docPath={path} />
