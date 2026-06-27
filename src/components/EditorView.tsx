@@ -32,6 +32,7 @@ import { printDocument } from "../lib/print";
 import { buildHtmlExport, buildMarkdownExport, downloadBlob } from "../lib/exportDoc";
 import { vaultSnapshot } from "../lib/history";
 import { HistoryPanel } from "./HistoryPanel";
+import { PrintPreview } from "./PrintPreview";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { OutlineJump } from "./OutlineJump";
 import { LinkPopover } from "./LinkPopover";
@@ -105,6 +106,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [outlineJumpOpen, setOutlineJumpOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
 
   const toggleFiles = () => {
     const next = !filesOpen;
@@ -602,7 +604,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         focusEnabled={focus.enabled}
         onSave={handleSave}
         onSign={handleSign}
-        onExportPdf={() => printDocument()}
+        onExportPdf={() => setPrintPreviewOpen(true)}
         onExportHtml={exportHtml}
         onExportMarkdown={exportMarkdown}
         onImportMarkdown={onImportMarkdown ?? (() => {})}
@@ -790,6 +792,13 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
       <LinkPopover editor={tiptapEditor} />
+      {printPreviewOpen && (
+        <PrintPreview
+          html={buildHtmlExport(editor.mode === "wysiwyg" ? serializeDoc(doc) : rawSource)}
+          onPrint={() => { setPrintPreviewOpen(false); printDocument(); }}
+          onClose={() => setPrintPreviewOpen(false)}
+        />
+      )}
       {ruler.enabled && rulerTop !== null && (
         <div className="no-print" style={{ position: "fixed", left: 0, right: 0, top: rulerTop, height: 22, background: "var(--accent-soft)", opacity: 0.45, pointerEvents: "none", zIndex: 1 }} />
       )}
