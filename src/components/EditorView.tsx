@@ -8,6 +8,7 @@ import { serializeDoc, parseMdxToDoc, type Doc } from "../registry/serializer";
 import { topBlockInsertPos } from "../registry/blockInsert";
 import { useEditorState } from "../hooks/useEditorState";
 import { useSpellcheck } from "../hooks/useSpellcheck";
+import { useFocusMode } from "../hooks/useFocusMode";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { readDraft, clearDraft, writeDraft } from "../lib/draftStore";
 import { DraftBanner } from "./DraftBanner";
@@ -57,6 +58,7 @@ interface Props {
 export function EditorView({ document: initialDoc, filename, path, onClose, onOpenNote }: Props) {
   const editor = useEditorState();
   const spell = useSpellcheck();
+  const focus = useFocusMode();
   const autosaveEnabled = localStorage.getItem("prizma.editor.autosave") !== "0";
   const [draft, setDraft] = useState(() => readDraft(path));
   const [doc, setDoc] = useState<Doc>(() => parseMdxToDoc(initialDoc.content_md));
@@ -208,6 +210,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       }
       if (e.metaKey || e.ctrlKey) {
         if (e.key === "/") { e.preventDefault(); setShortcutsOpen(true); return; }
+        if (e.key === ".") { e.preventDefault(); focus.toggle(); return; }
         if (e.key === "1") { e.preventDefault(); toggleFiles(); }
         else if (e.key === "2") { e.preventDefault(); toggleNav(); }
         else if (e.key === "3") { e.preventDefault(); toggleAi(); }
@@ -533,16 +536,18 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         dirty={editor.dirty}
         saving={editor.saving}
         mode={editor.mode}
+        focusEnabled={focus.enabled}
         onSave={handleSave}
         onSign={handleSign}
         onExport={() => printDocument()}
         onToggleMode={handleToggleMode}
         onOpenSettings={() => setSettingsOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}
+        onToggleFocus={focus.toggle}
         onClose={onClose}
       />
       {draft && <DraftBanner onRestore={restoreDraft} onDiscard={discardDraft} />}
-      {editor.mode === "wysiwyg" && <div className="no-print"><EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} onOpenTemplates={() => setTemplateInsertOpen(true)} /></div>}
+      {!focus.enabled && editor.mode === "wysiwyg" && <div className="no-print"><EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} onOpenTemplates={() => setTemplateInsertOpen(true)} /></div>}
       {findOpen && editor.mode === "wysiwyg" && (
         <FindReplaceBar
           findText={findText}
@@ -560,7 +565,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       )}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* File tree pane (vault) */}
-        {vault.vaultPath && (
+        {vault.vaultPath && !focus.enabled && (
           <CollapsiblePane
             title="Files"
             side="left"
@@ -589,6 +594,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
           </CollapsiblePane>
         )}
         {/* Nav pane (TOC/Backlinks — content in SP4; shell here) */}
+        {!focus.enabled && (
         <CollapsiblePane
           title={navTab === "outline" ? "Outline" : navTab === "backlinks" ? "Backlinks" : "Graph"}
           side="left"
@@ -648,6 +654,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
             />
           )}
         </CollapsiblePane>
+        )}
         <div style={{ flex: 1, overflow: "auto", position: "relative" }}>
           {editor.mode === "wysiwyg" ? (
             <WysiwygSurface
@@ -662,6 +669,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
           )}
         </div>
         {/* AI pane */}
+        {!focus.enabled && (
         <CollapsiblePane
           title="AI ✨"
           side="right"
@@ -680,8 +688,9 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
             vaultPath={vault.vaultPath}
           />
         </CollapsiblePane>
+        )}
       </div>
-      <DocStatsBar stats={stats} selectionStats={selectionStats} />
+      {!focus.enabled && <DocStatsBar stats={stats} selectionStats={selectionStats} />}
       <TrustFooter filename={filename} originDomain={initialDoc.manifest.origin_domain} verifyResult={null} />
       <McpServerStatus docPath={path} />
       {peekComponent && (

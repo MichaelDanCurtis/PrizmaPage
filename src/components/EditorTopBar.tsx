@@ -3,16 +3,18 @@ interface Props {
   dirty: boolean;
   saving: boolean;
   mode: "wysiwyg" | "raw";
+  focusEnabled: boolean;
   onSave: () => void;
   onSign: () => void;
   onExport: () => void;
   onToggleMode: () => void;
   onOpenSettings: () => void;
   onShowShortcuts: () => void;
+  onToggleFocus: () => void;
   onClose: () => void;
 }
 
-export function EditorTopBar({ filename, dirty, saving, mode, onSave, onSign, onExport, onToggleMode, onOpenSettings, onShowShortcuts, onClose }: Props) {
+export function EditorTopBar({ filename, dirty, saving, mode, focusEnabled, onSave, onSign, onExport, onToggleMode, onOpenSettings, onShowShortcuts, onToggleFocus, onClose }: Props) {
   return (
     <div
       style={{
@@ -28,6 +30,43 @@ export function EditorTopBar({ filename, dirty, saving, mode, onSave, onSign, on
       <div style={{ fontSize: 12, color: "var(--text)", fontWeight: 500 }}>📄 {filename}</div>
       {dirty && <div style={{ fontSize: 10, color: "var(--text-faint)" }}>· edited</div>}
       <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+        {focusEnabled && (
+          <button
+            onClick={onToggleFocus}
+            title="Exit focus mode (Cmd+.)"
+            className="no-print"
+            style={{
+              background: "var(--accent)",
+              color: "white",
+              border: "none",
+              padding: "4px 12px",
+              borderRadius: "var(--radius)",
+              fontSize: 11,
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            ← Exit focus
+          </button>
+        )}
+        {!focusEnabled && (
+          <>
+        <button
+          onClick={onToggleFocus}
+          title="Focus mode (Cmd+.)"
+          className="no-print"
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "var(--text-muted)",
+            cursor: "pointer",
+            fontSize: 14,
+            padding: "4px 8px",
+          }}
+        >
+          🎯
+        </button>
         <button
           onClick={onOpenSettings}
           title="Settings"
@@ -120,6 +159,8 @@ export function EditorTopBar({ filename, dirty, saving, mode, onSave, onSign, on
         >
           {mode === "wysiwyg" ? "Raw" : "Write"}
         </button>
+          </>
+        )}
         <div onClick={onClose} style={{ color: "var(--text-faint)", cursor: "pointer", padding: "4px 8px", fontSize: 14 }}>
           ✕
         </div>
