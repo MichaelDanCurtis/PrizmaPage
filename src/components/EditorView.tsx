@@ -328,9 +328,38 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
     const tmpl = getTemplate(id);
     if (!tmpl || !tiptapEditor) return;
     const parsed = parseMdxToDoc(tmpl.body).json.content ?? [];
+    // Strip empty text nodes — ProseMirror rejects them ("RangeError: Empty
+    // text") when validating inserted content. Templates with empty bullets /
+    // blank lines parse to such nodes; drop them recursively.
+    const cleanBlock = (val: any): any => {
+      if (val && typeof val === "object") {
+        if (val.type === "text" && (val.text === "" || val.text == null)) return undefined;
+        if (Array.isArray(val)) {
+          return val.map(cleanBlock).filter((x) => x !== undefined);
+        }
+        if (val.content) {
+          val = { ...val, content: val.content.map(cleanBlock).filter((x: any) => x !== undefined) };
+        }
+      }
+      return val;
+    };
     tiptapEditor.commands.focus();
-    tiptapEditor.commands.insertContent(parsed);
-    editor.markDirty();
+    // Insert top-level blocks one at a time so a single component-heavy block
+    // that fails schema validation (e.g. a Callout with nested text the
+    // serializer emits differently than the schema expects) doesn't abort the
+    // whole insert — the rest of the template still lands.
+    let insertedAny = false;
+    for (const block of parsed) {
+      const clean = cleanBlock(block);
+      if (!clean) continue;
+      try {
+        if (tiptapEditor.commands.insertContent(clean)) insertedAny = true;
+      } catch {
+        // A block that violates the schema (component nesting edge cases) is
+        // skipped so the template's prose still inserts.
+      }
+    }
+    if (insertedAny) editor.markDirty();
   };
 
   // Insert at cursor via the TipTap editor instance.
