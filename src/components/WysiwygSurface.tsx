@@ -14,7 +14,9 @@ import { useEffect, useRef, useState } from "react";
 import { listComponents } from "../registry/ComponentRegistry";
 import { ComponentNode } from "../registry/componentNode";
 import { docFromJson, type Doc } from "../registry/serializer";
+import { parseMdxToDoc } from "../registry/serializer";
 import { topBlockInsertPos } from "../registry/blockInsert";
+import { classifyPaste } from "../lib/smartPaste";
 import { useInlineCompletion } from "../hooks/useInlineCompletion";
 import { CompletionHint } from "./CompletionHint";
 import { AiContextMenu } from "./AiContextMenu";
@@ -59,6 +61,42 @@ export function WysiwygSurface({ doc, onChange, onEditorReady, onAiComponent, sp
     editorProps: {
       attributes: {
         spellcheck: spellcheck ? "true" : "false",
+      },
+      handlePaste: (view, event) => {
+        const cd = event.clipboardData;
+        if (!cd) return false;
+        const text = cd.getData("text/plain");
+        const html = cd.getData("text/html") || null;
+        const { empty } = view.state.selection;
+        const strategy = classifyPaste({ text, html, hasSelection: !empty });
+
+        if (strategy === "link") {
+          // Select text, paste URL → wrap selection as a link.
+          event.preventDefault();
+          const mark = view.state.schema.marks.link.create({ href: text.trim() });
+          view.dispatch(view.state.tr.addMark(view.state.selection.from, view.state.selection.to, mark));
+          return true;
+        }
+        if (strategy === "markdown") {
+          // Convert markdown text into nodes (best-effort; per-block so one
+          // rejected block doesn't abort the whole paste).
+          event.preventDefault();
+          const parsed = parseMdxToDoc(text).json.content ?? [];
+          let tr = view.state.tr;
+          const at = view.state.selection.from;
+          // Insert as a slice replacing the (collapsed or selected) range.
+          for (const block of parsed) {
+            try {
+              const node = view.state.schema.nodeFromJSON(block);
+              tr = tr.insert(tr.mapping.map(at), node);
+            } catch {
+              // skip a block the schema rejects
+            }
+          }
+          view.dispatch(tr);
+          return true;
+        }
+        return false; // html/plain → TipTap default handling
       },
     },
     onUpdate: ({ editor }) => {
