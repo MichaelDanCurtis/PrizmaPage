@@ -1,6 +1,7 @@
 import { BubbleMenu } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { slugify } from "../lib/anchorLinks";
 
 interface Props {
   editor: Editor | null;
@@ -47,6 +48,18 @@ export function LinkPopover({ editor }: Props) {
     setOpen(false);
   };
 
+  // Headings available for cross-reference (anchor) links.
+  const headings = useMemo(() => {
+    if (!editor) return [];
+    const out: { text: string; slug: string }[] = [];
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === "heading") {
+        out.push({ text: node.textContent, slug: slugify(node.textContent) });
+      }
+    });
+    return out;
+  }, [editor, open]);
+
   return (
     <BubbleMenu
       editor={editor}
@@ -62,6 +75,17 @@ export function LinkPopover({ editor }: Props) {
           style={{ width: 180, padding: "3px 6px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontSize: 12, color: "var(--text)", background: "var(--bg)" }}
         />
         <button onClick={apply} style={{ fontSize: 11, padding: "3px 8px", background: "var(--accent)", color: "white", border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer" }}>Apply</button>
+        {headings.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => { if (e.target.value) setHref(`#${e.target.value}`); }}
+            title="Link to a heading in this document"
+            style={{ fontSize: 11, maxWidth: 120, padding: "3px 4px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)", color: "var(--text-muted)" }}
+          >
+            <option value="">§ heading…</option>
+            {headings.map((h, i) => <option key={i} value={h.slug}>{h.text.slice(0, 30)}</option>)}
+          </select>
+        )}
         <button onClick={remove} title="Remove link" style={{ fontSize: 11, padding: "3px 8px", background: "transparent", color: "var(--text-muted)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", cursor: "pointer" }}>✕</button>
       </div>
     </BubbleMenu>
