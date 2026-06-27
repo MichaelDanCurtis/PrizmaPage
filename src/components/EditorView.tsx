@@ -26,6 +26,7 @@ import { signingGenerateKeypair, signingSign } from "../lib/signing";
 import { computeStats, type DocStats } from "../lib/docStats";
 import { printDocument } from "../lib/print";
 import { ShortcutsDialog } from "./ShortcutsDialog";
+import { OutlineJump } from "./OutlineJump";
 import { DocStatsBar } from "./DocStatsBar";
 import { findAll, type Range } from "../lib/findReplace";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -85,6 +86,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const [matchIndex, setMatchIndex] = useState(0);
   const [templateInsertOpen, setTemplateInsertOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [outlineJumpOpen, setOutlineJumpOpen] = useState(false);
 
   const toggleFiles = () => {
     const next = !filesOpen;
@@ -173,6 +175,11 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "f") {
         e.preventDefault();
         setSearchOpen(true);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        setOutlineJumpOpen(true);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -690,6 +697,13 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       )}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
+      {outlineJumpOpen && (
+        <OutlineJump
+          editor={tiptapEditor}
+          onJump={(pos) => { tiptapEditor?.chain().focus().setTextSelection(pos + 1).scrollIntoView().run(); }}
+          onClose={() => setOutlineJumpOpen(false)}
+        />
+      )}
       {templateInsertOpen && (
         <TemplatePicker onPick={handleInsertTemplate} onClose={() => setTemplateInsertOpen(false)} />
       )}
