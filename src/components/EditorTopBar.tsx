@@ -15,10 +15,11 @@ interface Props {
   onOpenSettings: () => void;
   onShowShortcuts: () => void;
   onToggleFocus: () => void;
+  onOpenHistory: () => void;
   onClose: () => void;
 }
 
-export function EditorTopBar({ filename, dirty, saving, mode, focusEnabled, onSave, onSign, onExportPdf, onExportHtml, onExportMarkdown, onToggleMode, onOpenSettings, onShowShortcuts, onToggleFocus, onClose }: Props) {
+export function EditorTopBar({ filename, dirty, saving, mode, focusEnabled, onSave, onSign, onExportPdf, onExportHtml, onExportMarkdown, onToggleMode, onOpenSettings, onShowShortcuts, onToggleFocus, onOpenHistory, onClose }: Props) {
   const [exportOpen, setExportOpen] = useState(false);
   return (
     <div
@@ -57,6 +58,21 @@ export function EditorTopBar({ filename, dirty, saving, mode, focusEnabled, onSa
         )}
         {!focusEnabled && (
           <>
+        <button
+          onClick={onOpenHistory}
+          title="Version history"
+          className="no-print"
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "var(--text-muted)",
+            cursor: "pointer",
+            fontSize: 14,
+            padding: "4px 8px",
+          }}
+        >
+          📋
+        </button>
         <button
           onClick={onToggleFocus}
           title="Focus mode (Cmd+.)"

@@ -27,6 +27,8 @@ import { signingGenerateKeypair, signingSign } from "../lib/signing";
 import { computeStats, type DocStats } from "../lib/docStats";
 import { printDocument } from "../lib/print";
 import { buildHtmlExport, buildMarkdownExport, downloadBlob } from "../lib/exportDoc";
+import { vaultSnapshot } from "../lib/history";
+import { HistoryPanel } from "./HistoryPanel";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { OutlineJump } from "./OutlineJump";
 import { LinkPopover } from "./LinkPopover";
@@ -93,6 +95,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const [templateInsertOpen, setTemplateInsertOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [outlineJumpOpen, setOutlineJumpOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const toggleFiles = () => {
     const next = !filesOpen;
@@ -320,6 +323,10 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       });
       editor.markSaved();
       clearDraft(path); // a successful save obsoletes any draft
+      // Capture a version snapshot when the doc lives in a vault.
+      if (vault.vaultPath) {
+        try { await vaultSnapshot(vault.vaultPath, path, source, compiled); } catch { /* best-effort */ }
+      }
     } catch (e) {
       alert(`Save failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -568,6 +575,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         onOpenSettings={() => setSettingsOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}
         onToggleFocus={focus.toggle}
+        onOpenHistory={() => setHistoryOpen(true)}
         onClose={onClose}
       />
       {draft && <DraftBanner onRestore={restoreDraft} onDiscard={discardDraft} />}
@@ -732,6 +740,20 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
       <LinkPopover editor={tiptapEditor} />
+      {historyOpen && vault.vaultPath && (
+        <HistoryPanel
+          vaultPath={vault.vaultPath}
+          docPath={path}
+          onRestored={async () => {
+            // Re-read the restored document from disk.
+            const reopened = await invoke<OpenedDocument>("open_document", { path });
+            setDoc(parseMdxToDoc(reopened.content_md));
+            setRawSource(reopened.content_md);
+            editor.markDirty();
+          }}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
       {outlineJumpOpen && (
         <OutlineJump
           editor={tiptapEditor}
