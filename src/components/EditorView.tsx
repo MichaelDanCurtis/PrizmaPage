@@ -778,6 +778,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         <HistoryPanel
           vaultPath={vault.vaultPath}
           docPath={path}
+          currentContent={editor.mode === "wysiwyg" ? serializeDoc(doc) : rawSource}
           onRestored={async () => {
             // Re-read the restored document from disk.
             const reopened = await invoke<OpenedDocument>("open_document", { path });
