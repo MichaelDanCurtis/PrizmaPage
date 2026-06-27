@@ -6,6 +6,7 @@ import { listRecents, shareDocumentPath, revealDocument, copyDocument, welcomePa
 import { vaultFileIn, getStoredVaultPath, vaultCreateNote } from "./lib/vault";
 import { getTemplate } from "./lib/templates";
 import { TemplatePicker } from "./components/TemplatePicker";
+import { printDocument } from "./lib/print";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { registerLibrary } from "./components/library";
 import { EmptyState } from "./components/EmptyState";
@@ -64,6 +65,7 @@ export function App() {
         }}
         onCopyPath={() => { if (open.path) shareDocumentPath(open.path).catch(() => {}); }}
         onFileInVault={() => { void handleFileIn(open.path ?? ""); }}
+        onPrint={() => printDocument()}
       />
     );
   }

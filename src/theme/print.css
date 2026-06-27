@@ -1,0 +1,18 @@
+@media print {
+  :root { --bg: #ffffff; --text: #000000; }
+  body { background: #fff !important; color: #000 !important; }
+
+  /* Hide every chrome element marked no-print. */
+  .no-print { display: none !important; }
+
+  /* Expand the document to a clean page. */
+  .ProseMirror {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* Avoid breaking inside code blocks / callouts / tables. */
+  pre, table, .callout, .component-card { break-inside: avoid; }
+
+  @page { margin: 2cm; }
+}

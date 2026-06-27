@@ -8,7 +8,7 @@ describe("HoverControls", () => {
       <HoverControls
         visible={true}
         onEdit={vi.fn()}
-        onShare={vi.fn()}
+        onShare={vi.fn()} onSaveCopy={vi.fn()} onCopyPath={vi.fn()} onFileInVault={vi.fn()} onPrint={vi.fn()}
         onZoomIn={vi.fn()}
         onZoomOut={vi.fn()}
         zoomPct={100}
@@ -24,7 +24,7 @@ describe("HoverControls", () => {
   it("calls onEdit when Edit clicked", () => {
     const onEdit = vi.fn();
     render(
-      <HoverControls visible={true} onEdit={onEdit} onShare={vi.fn()} onZoomIn={vi.fn()} onZoomOut={vi.fn()} zoomPct={100} />
+      <HoverControls visible={true} onEdit={onEdit} onShare={vi.fn()} onSaveCopy={vi.fn()} onCopyPath={vi.fn()} onFileInVault={vi.fn()} onPrint={vi.fn()} onZoomIn={vi.fn()} onZoomOut={vi.fn()} zoomPct={100} />
     );
     fireEvent.click(screen.getByText("Edit"));
     expect(onEdit).toHaveBeenCalledOnce();
@@ -32,7 +32,7 @@ describe("HoverControls", () => {
 
   it("renders nothing visible when not visible", () => {
     render(
-      <HoverControls visible={false} onEdit={vi.fn()} onShare={vi.fn()} onZoomIn={vi.fn()} onZoomOut={vi.fn()} zoomPct={100} />
+      <HoverControls visible={false} onEdit={vi.fn()} onShare={vi.fn()} onSaveCopy={vi.fn()} onCopyPath={vi.fn()} onFileInVault={vi.fn()} onPrint={vi.fn()} onZoomIn={vi.fn()} onZoomOut={vi.fn()} zoomPct={100} />
     );
     expect(screen.queryByText("Edit")).not.toBeInTheDocument();
   });

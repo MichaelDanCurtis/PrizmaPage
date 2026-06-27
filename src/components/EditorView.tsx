@@ -21,6 +21,7 @@ import { AiPanel } from "./AiPanel";
 import { useResizablePanel } from "../hooks/useResizablePanel";
 import { signingGenerateKeypair, signingSign } from "../lib/signing";
 import { computeStats, type DocStats } from "../lib/docStats";
+import { printDocument } from "../lib/print";
 import { DocStatsBar } from "./DocStatsBar";
 import { findAll, type Range } from "../lib/findReplace";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -469,11 +470,12 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         mode={editor.mode}
         onSave={handleSave}
         onSign={handleSign}
+        onExport={() => printDocument()}
         onToggleMode={handleToggleMode}
         onOpenSettings={() => setSettingsOpen(true)}
         onClose={onClose}
       />
-      {editor.mode === "wysiwyg" && <EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} onOpenTemplates={() => setTemplateInsertOpen(true)} />}
+      {editor.mode === "wysiwyg" && <div className="no-print"><EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} onOpenTemplates={() => setTemplateInsertOpen(true)} /></div>}
       {findOpen && editor.mode === "wysiwyg" && (
         <FindReplaceBar
           findText={findText}
@@ -499,6 +501,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
             width={filesWidth}
             onToggle={toggleFiles}
             background="var(--bg-muted)"
+            className="no-print"
           >
             <FileTree
               entries={vault.entries}
@@ -525,6 +528,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
           collapsed={!navOpen}
           width={navWidth}
           onToggle={toggleNav}
+          className="no-print"
         >
           <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
             <button
@@ -598,6 +602,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
           width={panel.width}
           onToggle={toggleAi}
           background="var(--bg-muted)"
+          className="no-print"
         >
           <AiPanel
             selection={selection}

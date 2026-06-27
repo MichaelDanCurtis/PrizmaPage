@@ -4,11 +4,14 @@ interface Props {
   saving: boolean;
   mode: "wysiwyg" | "raw";
   onSave: () => void;
+  onSign: () => void;
+  onExport: () => void;
   onToggleMode: () => void;
+  onOpenSettings: () => void;
   onClose: () => void;
 }
 
-export function EditorTopBar({ filename, dirty, saving, mode, onSave, onToggleMode, onClose }: Props) {
+export function EditorTopBar({ filename, dirty, saving, mode, onSave, onSign, onExport, onToggleMode, onOpenSettings, onClose }: Props) {
   return (
     <div
       style={{
@@ -25,6 +28,35 @@ export function EditorTopBar({ filename, dirty, saving, mode, onSave, onToggleMo
       {dirty && <div style={{ fontSize: 10, color: "var(--text-faint)" }}>· edited</div>}
       <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
         <button
+          onClick={onOpenSettings}
+          title="Settings"
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "var(--text-muted)",
+            cursor: "pointer",
+            fontSize: 14,
+            padding: "4px 8px",
+          }}
+        >
+          ⚙
+        </button>
+        <button
+          onClick={onExport}
+          title="Export to PDF / Print"
+          className="no-print"
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "var(--text-muted)",
+            cursor: "pointer",
+            fontSize: 14,
+            padding: "4px 8px",
+          }}
+        >
+          🖨
+        </button>
+        <button
           onClick={onSave}
           disabled={saving}
           style={{
@@ -40,6 +72,22 @@ export function EditorTopBar({ filename, dirty, saving, mode, onSave, onToggleMo
           }}
         >
           {saving ? "Saving…" : "Save"}
+        </button>
+        <button
+          onClick={onSign}
+          title="Sign this document with your key"
+          style={{
+            background: "var(--bg-muted)",
+            color: "var(--text-muted)",
+            border: "1px solid var(--border)",
+            padding: "4px 10px",
+            borderRadius: "var(--radius)",
+            fontSize: 11,
+            fontWeight: 500,
+            cursor: "pointer",
+          }}
+        >
+          🔑
         </button>
         <button
           onClick={onToggleMode}
