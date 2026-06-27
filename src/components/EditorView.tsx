@@ -92,45 +92,43 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const toggleAi = () => setAiPanelOpen((v) => !v);
 
   // ---- Find & Replace -------------------------------------------------------
-  // Matches are computed against the document's flat text
-  // (textBetween(0, size, " ")). ProseMirror positions are offset by +1 from
-  // flat-text offsets (pos 0 sits before the first block's opening token), so
-  // we map a flat offset back to a PM position by walking top-level blocks and
-  // counting text the same way textBetween joins them (with " " separators).
-  const flatText = tiptapEditor && !tiptapEditor.isDestroyed
-    ? tiptapEditor.state.doc.textBetween(0, tiptapEditor.state.doc.content.size, " ")
-    : "";
+  // We build the document's flat text via a single nodesBetween walk that
+  // records, for every flat-text offset, the corresponding ProseMirror
+  // position. This avoids the textBetween/position off-by-one that bit an
+  // earlier block-walk approach (nested blocks made the math drift).
+  const { flatText, posAt } = (() => {
+    const text: string[] = [];
+    const positions: number[] = []; // positions[i] = PM pos of flatText[i]
+    if (tiptapEditor && !tiptapEditor.isDestroyed) {
+      tiptapEditor.state.doc.nodesBetween(0, tiptapEditor.state.doc.content.size, (node, pos) => {
+        if (node.isText && node.text) {
+          for (let i = 0; i < node.text.length; i++) {
+            text.push(node.text[i]);
+            positions.push(pos + i);
+          }
+        } else if (node.isBlock && text.length > 0 && text[text.length - 1] !== " ") {
+          // Insert a single space at block boundaries to match textBetween's
+          // joining; map it to the block's start position (best-effort).
+          text.push(" ");
+          positions.push(pos);
+        }
+      });
+    }
+    return { flatText: text.join(""), posAt: (off: number) => positions[Math.min(off, positions.length - 1)] ?? 1 };
+  })();
   const matches: Range[] = findOpen && findText
     ? findAll(flatText, findText, {})
     : [];
-
-  const flatOffsetToPos = (offset: number): number => {
-    if (!tiptapEditor) return offset + 1;
-    const doc = tiptapEditor.state.doc;
-    let pos = 1; // PM position 1 = start of the first block's content.
-    let consumed = 0; // flat-text chars consumed so far (excl. join spaces).
-    let resolved: number | null = null;
-    doc.forEach((block) => {
-      if (resolved !== null) return;
-      const blockText = block.textBetween(0, block.content.size, " ");
-      if (offset <= consumed + blockText.length) {
-        resolved = pos + (offset - consumed);
-      } else {
-        consumed += blockText.length + 1; // +1 for the " " textBetween inserts.
-        pos += block.nodeSize;
-      }
-    });
-    return resolved ?? offset + 1;
-  };
 
   const jumpTo = (i: number) => {
     if (!tiptapEditor || matches.length === 0) return;
     const idx = ((i % matches.length) + matches.length) % matches.length;
     const { from, to } = matches[idx];
-    const fromPos = flatOffsetToPos(from);
-    const toPos = flatOffsetToPos(to);
-    tiptapEditor.commands.setTextSelection({ from: fromPos, to: toPos });
-    tiptapEditor.commands.scrollIntoView();
+    const fromPos = posAt(from);
+    const toPos = Math.max(posAt(to - 1) + 1, fromPos + (to - from));
+    // focus + chain so the selection both applies as a transaction AND becomes
+    // the visible DOM selection (the editor must be focused to reflect it).
+    tiptapEditor.chain().focus().setTextSelection({ from: fromPos, to: toPos }).scrollIntoView().run();
     setMatchIndex(idx);
   };
   const nextMatch = () => jumpTo(matchIndex + 1);
@@ -139,10 +137,12 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const replaceOne = () => {
     if (!tiptapEditor || matches.length === 0) return;
     const { from, to } = matches[matchIndex];
+    const fromPos = posAt(from);
+    const toPos = Math.max(posAt(to - 1) + 1, fromPos + (to - from));
     tiptapEditor.chain()
       .focus()
-      .deleteRange({ from: flatOffsetToPos(from), to: flatOffsetToPos(to) })
-      .insertContentAt(flatOffsetToPos(from), replaceText)
+      .deleteRange({ from: fromPos, to: toPos })
+      .insertContentAt(fromPos, replaceText)
       .run();
     editor.markDirty();
   };
@@ -152,8 +152,9 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
     let tr = tiptapEditor.state.tr;
     for (let i = matches.length - 1; i >= 0; i--) {
       const { from, to } = matches[i];
-      tr = tr.delete(flatOffsetToPos(from), flatOffsetToPos(to))
-        .insertText(replaceText, flatOffsetToPos(from));
+      const fromPos = posAt(from);
+      const toPos = Math.max(posAt(to - 1) + 1, fromPos + (to - from));
+      tr = tr.delete(fromPos, toPos).insertText(replaceText, fromPos);
     }
     tiptapEditor.view.dispatch(tr);
     editor.markDirty();
