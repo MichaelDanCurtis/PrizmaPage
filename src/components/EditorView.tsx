@@ -27,6 +27,7 @@ import { useResizablePanel } from "../hooks/useResizablePanel";
 import { signingGenerateKeypair, signingSign } from "../lib/signing";
 import { computeStats, type DocStats } from "../lib/docStats";
 import { computeReadability, type Readability } from "../lib/readability";
+import { getDocSetting, setDocSetting } from "../lib/docSettings";
 import { printDocument } from "../lib/print";
 import { buildHtmlExport, buildMarkdownExport, downloadBlob } from "../lib/exportDoc";
 import { vaultSnapshot } from "../lib/history";
@@ -73,7 +74,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const [rulerTop, setRulerTop] = useState<number | null>(null);
   const autosaveEnabled = localStorage.getItem("prizma.editor.autosave") !== "0";
   const [draft, setDraft] = useState(() => readDraft(path));
-  const [goal, setGoal] = useState<number>(() => Number(localStorage.getItem("prizma.editor.goal")) || 0);
+  const [goal, setGoal] = useState<number>(() => path ? getDocSetting(path).goal : 0);
   const [doc, setDoc] = useState<Doc>(() => parseMdxToDoc(initialDoc.content_md));
   const [rawSource, setRawSource] = useState<string>(initialDoc.content_md);
   const [peekComponent, setPeekComponent] = useState<string | null>(null);
@@ -390,7 +391,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
     if (v !== null) {
       const n = Math.max(0, Number(v) || 0);
       setGoal(n);
-      localStorage.setItem("prizma.editor.goal", String(n));
+      if (path) setDocSetting(path, { goal: n });
     }
   };
 

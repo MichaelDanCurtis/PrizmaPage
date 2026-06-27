@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { OpenedDocument } from "../lib/package";
+import { getDocSetting, setDocSetting } from "../lib/docSettings";
 import { useHoverControls } from "../hooks/useHoverControls";
 import { signingVerify, type VerifyResult } from "../lib/signing";
 import { DocumentCanvas } from "./DocumentCanvas";
@@ -20,7 +21,7 @@ interface Props {
 
 export function DocumentView({ document: doc, filename, path, onEdit, onShare, onSaveCopy, onCopyPath, onFileInVault, onPrint }: Props) {
   const { visible, onEnter, onLeave } = useHoverControls();
-  const [zoomPct, setZoomPct] = useState(100);
+  const [zoomPct, setZoomPct] = useState(() => getDocSetting(path).zoom);
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
 
   // Verify the package signature at open. Unsigned docs (the common case)
@@ -33,8 +34,9 @@ export function DocumentView({ document: doc, filename, path, onEdit, onShare, o
     return () => { cancelled = true; };
   }, [path]);
 
-  const zoomIn = () => setZoomPct((z) => Math.min(200, z + 10));
-  const zoomOut = () => setZoomPct((z) => Math.max(50, z - 10));
+  const persistZoom = (z: number) => { setDocSetting(path, { zoom: z }); };
+  const zoomIn = () => setZoomPct((z) => { const n = Math.min(200, z + 10); persistZoom(n); return n; });
+  const zoomOut = () => setZoomPct((z) => { const n = Math.max(50, z - 10); persistZoom(n); return n; });
 
   return (
     <div style={{ position: "absolute", inset: 0, background: "var(--bg)", overflow: "auto" }}>
