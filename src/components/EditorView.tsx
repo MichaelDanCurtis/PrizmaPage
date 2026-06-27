@@ -29,6 +29,7 @@ import { printDocument } from "../lib/print";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { OutlineJump } from "./OutlineJump";
 import { DocStatsBar } from "./DocStatsBar";
+import { GoalBar } from "./GoalBar";
 import { findAll, type Range } from "../lib/findReplace";
 import { FindReplaceBar } from "./FindReplaceBar";
 import { getTemplate } from "../lib/templates";
@@ -61,6 +62,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const focus = useFocusMode();
   const autosaveEnabled = localStorage.getItem("prizma.editor.autosave") !== "0";
   const [draft, setDraft] = useState(() => readDraft(path));
+  const [goal, setGoal] = useState<number>(() => Number(localStorage.getItem("prizma.editor.goal")) || 0);
   const [doc, setDoc] = useState<Doc>(() => parseMdxToDoc(initialDoc.content_md));
   const [rawSource, setRawSource] = useState<string>(initialDoc.content_md);
   const [peekComponent, setPeekComponent] = useState<string | null>(null);
@@ -341,6 +343,14 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
     setDraft(null);
   };
   const discardDraft = () => { clearDraft(path); setDraft(null); };
+  const editGoal = () => {
+    const v = window.prompt("Word-count goal (0 to clear)", String(goal));
+    if (v !== null) {
+      const n = Math.max(0, Number(v) || 0);
+      setGoal(n);
+      localStorage.setItem("prizma.editor.goal", String(n));
+    }
+  };
 
   // Sign the document: reuse a stored keyid, or generate a new keypair first.
   const handleSign = async () => {
@@ -691,6 +701,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         )}
       </div>
       {!focus.enabled && <DocStatsBar stats={stats} selectionStats={selectionStats} />}
+      {!focus.enabled && <GoalBar words={stats.words} goal={goal} onSetGoal={editGoal} />}
       <TrustFooter filename={filename} originDomain={initialDoc.manifest.origin_domain} verifyResult={null} />
       <McpServerStatus docPath={path} />
       {peekComponent && (
