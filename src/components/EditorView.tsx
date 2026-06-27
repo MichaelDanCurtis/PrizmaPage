@@ -22,6 +22,8 @@ import { useResizablePanel } from "../hooks/useResizablePanel";
 import { signingGenerateKeypair, signingSign } from "../lib/signing";
 import { computeStats, type DocStats } from "../lib/docStats";
 import { DocStatsBar } from "./DocStatsBar";
+import { findAll, type Range } from "../lib/findReplace";
+import { FindReplaceBar } from "./FindReplaceBar";
 import { CollapsiblePane } from "./CollapsiblePane";
 import { FileTree } from "./FileTree";
 import { BacklinksPanel } from "./BacklinksPanel";
@@ -67,6 +69,11 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const [navTab, setNavTab] = useState<"outline" | "backlinks" | "graph">("outline");
   const [searchOpen, setSearchOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Find & replace state.
+  const [findOpen, setFindOpen] = useState(false);
+  const [findText, setFindText] = useState("");
+  const [replaceText, setReplaceText] = useState("");
+  const [matchIndex, setMatchIndex] = useState(0);
 
   const toggleFiles = () => {
     const next = !filesOpen;
@@ -80,6 +87,74 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   };
   const toggleAi = () => setAiPanelOpen((v) => !v);
 
+  // ---- Find & Replace -------------------------------------------------------
+  // Matches are computed against the document's flat text
+  // (textBetween(0, size, " ")). ProseMirror positions are offset by +1 from
+  // flat-text offsets (pos 0 sits before the first block's opening token), so
+  // we map a flat offset back to a PM position by walking top-level blocks and
+  // counting text the same way textBetween joins them (with " " separators).
+  const flatText = tiptapEditor && !tiptapEditor.isDestroyed
+    ? tiptapEditor.state.doc.textBetween(0, tiptapEditor.state.doc.content.size, " ")
+    : "";
+  const matches: Range[] = findOpen && findText
+    ? findAll(flatText, findText, {})
+    : [];
+
+  const flatOffsetToPos = (offset: number): number => {
+    if (!tiptapEditor) return offset + 1;
+    const doc = tiptapEditor.state.doc;
+    let pos = 1; // PM position 1 = start of the first block's content.
+    let consumed = 0; // flat-text chars consumed so far (excl. join spaces).
+    let resolved: number | null = null;
+    doc.forEach((block) => {
+      if (resolved !== null) return;
+      const blockText = block.textBetween(0, block.content.size, " ");
+      if (offset <= consumed + blockText.length) {
+        resolved = pos + (offset - consumed);
+      } else {
+        consumed += blockText.length + 1; // +1 for the " " textBetween inserts.
+        pos += block.nodeSize;
+      }
+    });
+    return resolved ?? offset + 1;
+  };
+
+  const jumpTo = (i: number) => {
+    if (!tiptapEditor || matches.length === 0) return;
+    const idx = ((i % matches.length) + matches.length) % matches.length;
+    const { from, to } = matches[idx];
+    const fromPos = flatOffsetToPos(from);
+    const toPos = flatOffsetToPos(to);
+    tiptapEditor.commands.setTextSelection({ from: fromPos, to: toPos });
+    tiptapEditor.commands.scrollIntoView();
+    setMatchIndex(idx);
+  };
+  const nextMatch = () => jumpTo(matchIndex + 1);
+  const prevMatch = () => jumpTo(matchIndex - 1);
+
+  const replaceOne = () => {
+    if (!tiptapEditor || matches.length === 0) return;
+    const { from, to } = matches[matchIndex];
+    tiptapEditor.chain()
+      .focus()
+      .deleteRange({ from: flatOffsetToPos(from), to: flatOffsetToPos(to) })
+      .insertContentAt(flatOffsetToPos(from), replaceText)
+      .run();
+    editor.markDirty();
+  };
+  const replaceAll = () => {
+    if (!tiptapEditor || matches.length === 0) return;
+    // Back-to-front to keep earlier offsets valid.
+    let tr = tiptapEditor.state.tr;
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const { from, to } = matches[i];
+      tr = tr.delete(flatOffsetToPos(from), flatOffsetToPos(to))
+        .insertText(replaceText, flatOffsetToPos(from));
+    }
+    tiptapEditor.view.dispatch(tr);
+    editor.markDirty();
+  };
+
   // Cmd+1/2/3 toggle each pane; Cmd+Shift+F opens vault search.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -91,6 +166,25 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen(true);
+        return;
+      }
+      // Find (Cmd/Ctrl+F), Replace (Cmd/Ctrl+H), next/prev (Cmd/Ctrl+G).
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        if (tiptapEditor && !tiptapEditor.state.selection.empty) {
+          setFindText(tiptapEditor.state.doc.textBetween(tiptapEditor.state.selection.from, tiptapEditor.state.selection.to, " "));
+        }
+        setFindOpen(true);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setFindOpen(true);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "g" && findOpen) {
+        e.preventDefault();
+        e.shiftKey ? prevMatch() : nextMatch();
         return;
       }
       if (e.metaKey || e.ctrlKey) {
@@ -366,6 +460,21 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         onClose={onClose}
       />
       {editor.mode === "wysiwyg" && <EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} />}
+      {findOpen && editor.mode === "wysiwyg" && (
+        <FindReplaceBar
+          findText={findText}
+          replaceText={replaceText}
+          onFindChange={(v) => { setFindText(v); setMatchIndex(0); }}
+          onReplaceChange={setReplaceText}
+          matchCount={matches.length}
+          matchIndex={matches.length === 0 ? -1 : Math.min(matchIndex, matches.length - 1)}
+          onNext={nextMatch}
+          onPrev={prevMatch}
+          onReplaceOne={replaceOne}
+          onReplaceAll={replaceAll}
+          onClose={() => setFindOpen(false)}
+        />
+      )}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* File tree pane (vault) */}
         {vault.vaultPath && (
