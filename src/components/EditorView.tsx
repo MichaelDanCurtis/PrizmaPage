@@ -26,6 +26,7 @@ import { useResizablePanel } from "../hooks/useResizablePanel";
 import { signingGenerateKeypair, signingSign } from "../lib/signing";
 import { computeStats, type DocStats } from "../lib/docStats";
 import { printDocument } from "../lib/print";
+import { buildHtmlExport, buildMarkdownExport, downloadBlob } from "../lib/exportDoc";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { OutlineJump } from "./OutlineJump";
 import { DocStatsBar } from "./DocStatsBar";
@@ -352,6 +353,16 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
     }
   };
 
+  // Export the current document source as standalone HTML / Markdown files.
+  const exportMarkdown = () => {
+    const src = editor.mode === "wysiwyg" ? serializeDoc(doc) : rawSource;
+    downloadBlob(filename.replace(/\.mdxz$/, ".md"), buildMarkdownExport(src), "text/markdown");
+  };
+  const exportHtml = () => {
+    const src = editor.mode === "wysiwyg" ? serializeDoc(doc) : rawSource;
+    downloadBlob(filename.replace(/\.mdxz$/, ".html"), buildHtmlExport(src), "text/html");
+  };
+
   // Sign the document: reuse a stored keyid, or generate a new keypair first.
   const handleSign = async () => {
     try {
@@ -549,7 +560,9 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         focusEnabled={focus.enabled}
         onSave={handleSave}
         onSign={handleSign}
-        onExport={() => printDocument()}
+        onExportPdf={() => printDocument()}
+        onExportHtml={exportHtml}
+        onExportMarkdown={exportMarkdown}
         onToggleMode={handleToggleMode}
         onOpenSettings={() => setSettingsOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}

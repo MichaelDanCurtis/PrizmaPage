@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 interface Props {
   filename: string;
   dirty: boolean;
@@ -6,7 +8,9 @@ interface Props {
   focusEnabled: boolean;
   onSave: () => void;
   onSign: () => void;
-  onExport: () => void;
+  onExportPdf: () => void;
+  onExportHtml: () => void;
+  onExportMarkdown: () => void;
   onToggleMode: () => void;
   onOpenSettings: () => void;
   onShowShortcuts: () => void;
@@ -14,7 +18,8 @@ interface Props {
   onClose: () => void;
 }
 
-export function EditorTopBar({ filename, dirty, saving, mode, focusEnabled, onSave, onSign, onExport, onToggleMode, onOpenSettings, onShowShortcuts, onToggleFocus, onClose }: Props) {
+export function EditorTopBar({ filename, dirty, saving, mode, focusEnabled, onSave, onSign, onExportPdf, onExportHtml, onExportMarkdown, onToggleMode, onOpenSettings, onShowShortcuts, onToggleFocus, onClose }: Props) {
+  const [exportOpen, setExportOpen] = useState(false);
   return (
     <div
       style={{
@@ -96,21 +101,41 @@ export function EditorTopBar({ filename, dirty, saving, mode, focusEnabled, onSa
         >
           ?
         </button>
-        <button
-          onClick={onExport}
-          title="Export to PDF / Print"
-          className="no-print"
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "var(--text-muted)",
-            cursor: "pointer",
-            fontSize: 14,
-            padding: "4px 8px",
-          }}
-        >
-          🖨
-        </button>
+        <div className="no-print" style={{ position: "relative" }}>
+          <button
+            onClick={() => setExportOpen((v) => !v)}
+            title="Export"
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              fontSize: 14,
+              padding: "4px 8px",
+            }}
+          >
+            🖨
+          </button>
+          {exportOpen && (
+            <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 4, zIndex: 200, minWidth: 150, fontFamily: "var(--font-sans)" }}>
+              {[
+                { label: "PDF / Print", fn: onExportPdf },
+                { label: "HTML", fn: onExportHtml },
+                { label: "Markdown", fn: onExportMarkdown },
+              ].map((opt) => (
+                <div
+                  key={opt.label}
+                  onClick={() => { setExportOpen(false); opt.fn(); }}
+                  style={{ padding: "6px 12px", cursor: "pointer", fontSize: 12, color: "var(--text)", borderRadius: "var(--radius-sm)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent-soft)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  {opt.label}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           onClick={onSave}
           disabled={saving}
