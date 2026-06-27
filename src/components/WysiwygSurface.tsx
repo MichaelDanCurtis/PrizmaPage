@@ -8,6 +8,7 @@ import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
+import { ImageResize } from "./ImageResize";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Table from "@tiptap/extension-table";
@@ -54,7 +55,7 @@ export function WysiwygSurface({ doc, onChange, onEditorReady, onAiComponent, sp
       Highlight.configure({ multicolor: false }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Link.configure({ openOnClick: false }),
-      Image,
+      ImageResize,
       TaskList,
       TaskItem.configure({ nested: true }),
       Table.configure({ resizable: false }),
