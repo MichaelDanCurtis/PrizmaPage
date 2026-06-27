@@ -327,6 +327,14 @@ export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = tr
                 close();
               }}
             />
+            <MenuRow
+              icon="☐"
+              label="Checklist"
+              onClick={() => {
+                editor.chain().focus().toggleTaskList().run();
+                close();
+              }}
+            />
           </>
         )}
       </Dropdown>

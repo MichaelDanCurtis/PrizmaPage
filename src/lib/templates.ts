@@ -33,7 +33,7 @@ export const TEMPLATES: Template[] = [
 
 ## Action items
 
-- Owner — action — due date
+- [ ] Owner — action — due date
 `,
   },
   {

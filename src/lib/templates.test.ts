@@ -17,10 +17,10 @@ describe("templates", () => {
     }
   });
 
-  it("meeting-notes template contains Agenda and uses bullets (not - [ ] tasks)", () => {
+  it("meeting-notes template contains Agenda and action items use checklists", () => {
     const m = getTemplate("meeting-notes");
     expect(m!.body).toMatch(/agenda/i);
-    expect(m!.body).not.toContain("- [ ]");
+    expect(m!.body).toContain("- [ ] Owner");
   });
 
   it("returns undefined for unknown id", () => {

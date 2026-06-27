@@ -24,6 +24,23 @@ export interface Doc {
   json: DocNode;
 }
 
+/// Encode a JSX attribute value so it survives the `key="value"` syntax.
+/// `"` becomes `&quot;` etc. Used when serializing component nodes.
+function encodeAttrValue(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/// Decode HTML entities in a JSX attribute value back to the raw character.
+/// Used when parsing component nodes (mirrors componentNode's decodeEntities).
+function decodeAttrValue(s: string): string {
+  return s
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
 /// Parse MDX to our intermediate doc shape.
 /// Hand-written line parser for prose blocks + JSX regex extractor for
 /// components. Handles the constructs the serializer emits; round-trip is
@@ -39,8 +56,8 @@ export function parseMdxToDoc(mdx: string): Doc {
       i++;
       continue;
     }
-    // Heading.
-    const headingMatch = line.match(/^(#{2,3})\s+(.*)$/);
+    // Heading (levels 1–6, like CommonMark).
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
     if (headingMatch) {
       content.push({
         type: "heading",
@@ -68,10 +85,25 @@ export function parseMdxToDoc(mdx: string): Doc {
       });
       continue;
     }
-    // Bullet list.
-    if (line.startsWith("- ")) {
+    // Task list (- [ ] / - [x]). Must precede the bullet branch.
+    if (/^- \[[ xX]\] /.test(line)) {
       const items: DocNode[] = [];
-      while (i < lines.length && lines[i].startsWith("- ")) {
+      while (i < lines.length && /^- \[[ xX]\] /.test(lines[i])) {
+        const checked = /^- \[[xX]\] /.test(lines[i]);
+        items.push({
+          type: "taskItem",
+          attrs: { checked },
+          content: [{ type: "paragraph", content: parseInline(lines[i].replace(/^- \[[ xX]\] /, "")) }],
+        });
+        i++;
+      }
+      content.push({ type: "taskList", content: items });
+      continue;
+    }
+    // Bullet list.
+    if (line.startsWith("- ") && !/^- \[[ xX]\] /.test(line)) {
+      const items: DocNode[] = [];
+      while (i < lines.length && lines[i].startsWith("- ") && !/^- \[[ xX]\] /.test(lines[i])) {
         items.push({
           type: "listItem",
           content: [{ type: "paragraph", content: parseInline(lines[i].slice(2)) }],
@@ -147,9 +179,10 @@ export function parseMdxToDoc(mdx: string): Doc {
 function isBlockStart(line: string): boolean {
   const t = line.trim();
   return (
-    /^(#{2,3})\s/.test(line) ||
+    /^(#{1,6})\s/.test(line) ||
     line.startsWith("> ") ||
     line.startsWith("- ") ||
+    /^- \[[ xX]\] /.test(line) ||
     /^\d+\.\s/.test(line) ||
     (t.startsWith("<") && (t.endsWith("/>") || t.endsWith(">")))
   );
@@ -158,7 +191,8 @@ function isBlockStart(line: string): boolean {
 /// Parse inline marks (bold, italic, code) within a line into text nodes.
 function parseInline(text: string): DocNode[] {
   const nodes: DocNode[] = [];
-  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  // Order matters: wikilink [[X]] before single-bracket link/image, <u> before tags.
+  const regex = /(\[\[[^\]]+\]\]|\*\*[^*]+\*\*|\*[^*]+\*|~~[^~]+~~|`[^`]+`|<u>[^<]+<\/u>|!\[[^\]]*\]\([^)\s]+\)|\[[^\]]+\]\([^)\s]+\))/g;
   let lastIdx = 0;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
@@ -166,12 +200,26 @@ function parseInline(text: string): DocNode[] {
       nodes.push({ type: "text", text: text.slice(lastIdx, match.index) });
     }
     const token = match[0];
-    if (token.startsWith("**") && token.endsWith("**")) {
+    if (token.startsWith("[[") && token.endsWith("]]")) {
+      // Wikilink: target is the note name (e.g. [[Roadmap]] → Roadmap.mdxz).
+      const target = token.slice(2, -2);
+      nodes.push({ type: "text", text: target, marks: [{ type: "wikilink", attrs: { target } }] });
+    } else if (token.startsWith("**") && token.endsWith("**")) {
       nodes.push({ type: "text", text: token.slice(2, -2), marks: [{ type: "bold" }] });
+    } else if (token.startsWith("~~") && token.endsWith("~~")) {
+      nodes.push({ type: "text", text: token.slice(2, -2), marks: [{ type: "strike" }] });
     } else if (token.startsWith("`") && token.endsWith("`")) {
       nodes.push({ type: "text", text: token.slice(1, -1), marks: [{ type: "code" }] });
     } else if (token.startsWith("*") && token.endsWith("*")) {
       nodes.push({ type: "text", text: token.slice(1, -1), marks: [{ type: "italic" }] });
+    } else if (token.startsWith("<u>") && token.endsWith("</u>")) {
+      nodes.push({ type: "text", text: token.slice(3, -4), marks: [{ type: "underline" }] });
+    } else if (token.startsWith("![")) {
+      const m = token.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/)!;
+      nodes.push({ type: "image", attrs: { alt: m[1], src: m[2] } });
+    } else if (token.startsWith("[")) {
+      const m = token.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/)!;
+      nodes.push({ type: "text", text: m[1], marks: [{ type: "link", attrs: { href: m[2] } }] });
     }
     lastIdx = regex.lastIndex;
   }
@@ -192,14 +240,28 @@ function parseJsxComponent(tag: string): DocNode {
   const attrRegex = /(\w+)="([^"]*)"/g;
   let am: RegExpExecArray | null;
   while ((am = attrRegex.exec(tag)) !== null) {
-    attrs[am[1]] = am[2];
+    // Decode entities so the internal representation matches what the
+    // componentNode view produces (e.g. JSON attrs parse correctly).
+    attrs[am[1]] = decodeAttrValue(am[2]);
   }
   // Store the full original JSX and the component name as attrs on a generic
   // "component" node. TipTap registers a single "component" node type that
   // renders whichever registered component the name attr points to.
   attrs["_name"] = name;
-  attrs["_jsx"] = tag.replace(/\/>$/, " />").endsWith("/>") ? tag : tag;
+  // Reconstruct a canonical _jsx from the decoded attrs so double-click →
+  // CodePeek shows the same thing the renderer sees.
+  attrs["_jsx"] = reconstructJsx(name, attrs);
   return { type: "component", attrs };
+}
+
+/// Build a canonical JSX string from a parsed component's name + attrs.
+/// Self-closing unless children are provided later. Public attrs only.
+function reconstructJsx(name: string, attrs: Record<string, unknown>): string {
+  const publicAttrs = Object.entries(attrs)
+    .filter(([k]) => !k.startsWith("_"))
+    .map(([k, v]) => `${k}="${encodeAttrValue(String(v))}"`)
+    .join(" ");
+  return `<${name}${publicAttrs ? " " + publicAttrs : ""} />`;
 }
 
 /// Serialize a doc back to MDX source.
@@ -239,14 +301,30 @@ function serializeNode(node: DocNode): string {
         .join("\n");
     case "listItem":
       return serializeInline(node.content?.[0]?.content ?? []);
+    case "taskList":
+      return (node.content ?? [])
+        .map((item) => serializeNode(item))
+        .join("\n");
+    case "taskItem": {
+      const checked = node.attrs?.checked === true;
+      const inner = serializeInline(node.content?.[0]?.content ?? []);
+      return `- ${checked ? "[x]" : "[ ]"} ${inner}`;
+    }
+    case "image": {
+      const alt = (node.attrs?.alt as string) ?? "";
+      const src = (node.attrs?.src as string) ?? "";
+      return `![${alt}](${src})`;
+    }
     default: {
       // Component node — generic "component" type with _name + _jsx attrs.
       if (node.type === "component") {
         const name = (node.attrs?._name as string) ?? "Component";
         // Filter out internal attrs (_name, _jsx) for the serialized JSX.
+        // Re-encode `"` and `&` so values containing them round-trip safely
+        // through the `key="value"` syntax (mirrors componentNode's decode).
         const publicAttrs = Object.entries(node.attrs ?? {})
           .filter(([k]) => !k.startsWith("_"))
-          .map(([k, v]) => `${k}="${String(v)}"`)
+          .map(([k, v]) => `${k}="${encodeAttrValue(String(v))}"`)
           .join(" ");
         if (node.content && node.content.length > 0) {
           const inner = serializeInline(node.content[0]?.content ?? []);
@@ -263,13 +341,33 @@ function serializeNode(node: DocNode): string {
 function serializeInline(nodes: DocNode[]): string {
   return nodes
     .map((n) => {
+      if (n.type === "image") {
+        const alt = (n.attrs?.alt as string) ?? "";
+        const src = (n.attrs?.src as string) ?? "";
+        return `![${alt}](${src})`;
+      }
       if (n.type === "text") {
         const text = n.text ?? "";
         const marks = n.marks ?? [];
-        if (marks.some((m) => m.type === "bold")) return `**${text}**`;
-        if (marks.some((m) => m.type === "italic")) return `*${text}*`;
-        if (marks.some((m) => m.type === "code")) return `\`${text}\``;
-        return text;
+        let out = text;
+        // Apply marks in a stable order so round-trips are deterministic.
+        if (marks.some((m) => m.type === "bold")) out = `**${out}**`;
+        if (marks.some((m) => m.type === "italic")) out = `*${out}*`;
+        if (marks.some((m) => m.type === "strike")) out = `~~${out}~~`;
+        if (marks.some((m) => m.type === "underline")) out = `<u>${out}</u>`;
+        if (marks.some((m) => m.type === "code")) out = `\`${out}\``;
+        if (marks.some((m) => m.type === "link")) {
+          const href = marks.find((m) => m.type === "link")?.attrs?.href ?? "";
+          out = `[${out}](${href})`;
+        }
+        if (marks.some((m) => m.type === "wikilink")) {
+          const target = marks.find((m) => m.type === "wikilink")?.attrs?.target ?? "";
+          out = `[[${target}]]`;
+        }
+        // color/highlight/align are editor-only affordances: they persist via
+        // the ProseMirror JSON path but are intentionally not emitted to MDX
+        // text (would require inline HTML; deferred).
+        return out;
       }
       return "";
     })
