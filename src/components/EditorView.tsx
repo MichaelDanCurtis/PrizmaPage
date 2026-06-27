@@ -616,7 +616,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         onClose={onClose}
       />
       {draft && <DraftBanner onRestore={restoreDraft} onDiscard={discardDraft} />}
-      {!focus.enabled && editor.mode === "wysiwyg" && <div className="no-print"><EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} onOpenTemplates={() => setTemplateInsertOpen(true)} /></div>}
+      {!focus.enabled && editor.mode === "wysiwyg" && <div className="no-print"><EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} spellcheckLocale={spell.locale} onSetSpellcheckLocale={spell.setLocale} onOpenTemplates={() => setTemplateInsertOpen(true)} /></div>}
       {findOpen && editor.mode === "wysiwyg" && (
         <FindReplaceBar
           findText={findText}
@@ -747,6 +747,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
               onEditorReady={setTiptapEditor}
               onAiComponent={() => setAiDialogOpen(true)}
               spellcheck={spell.enabled}
+              lang={spell.locale}
             />
           ) : (
             <RawEditor value={rawSource} onChange={(v) => { setRawSource(v); editor.markDirty(); writeDraft(path, v, Date.now()); notifyEditRef.current(); }} />

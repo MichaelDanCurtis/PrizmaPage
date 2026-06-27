@@ -39,9 +39,11 @@ interface Props {
   onAiComponent?: () => void;
   /// Reflects onto the ProseMirror element's `spellcheck` attribute.
   spellcheck?: boolean;
+  /// Reflects onto the ProseMirror element's `lang` attribute (spellcheck locale).
+  lang?: string;
 }
 
-export function WysiwygSurface({ doc, onChange, onEditorReady, onAiComponent, spellcheck = true }: Props) {
+export function WysiwygSurface({ doc, onChange, onEditorReady, onAiComponent, spellcheck = true, lang = "en-US" }: Props) {
   // Slash menu state.
   const [slashOpen, setSlashOpen] = useState(false);
   const [aiMenu, setAiMenu] = useState<{ top: number; left: number; text: string } | null>(null);
@@ -78,6 +80,7 @@ export function WysiwygSurface({ doc, onChange, onEditorReady, onAiComponent, sp
     editorProps: {
       attributes: {
         spellcheck: spellcheck ? "true" : "false",
+        lang,
       },
       handlePaste: (view, event) => {
         const cd = event.clipboardData;
@@ -126,7 +129,8 @@ export function WysiwygSurface({ doc, onChange, onEditorReady, onAiComponent, sp
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     editor.view.dom.setAttribute("spellcheck", spellcheck ? "true" : "false");
-  }, [editor, spellcheck]);
+    editor.view.dom.setAttribute("lang", lang);
+  }, [editor, spellcheck, lang]);
 
   // Inline AI completion (debounced; Tab to accept).
   const inline = useInlineCompletion(editor);

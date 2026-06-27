@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import type { Editor } from "@tiptap/react";
 import { listComponents } from "../registry/ComponentRegistry";
 import { LANGUAGES } from "../lib/languages";
+import { SPELLCHECK_LOCALES } from "../hooks/useSpellcheck";
 
 interface Props {
   editor: Editor | null;
@@ -9,6 +10,8 @@ interface Props {
   onInsertImage: () => void;
   spellcheck?: boolean;
   onToggleSpellcheck?: () => void;
+  spellcheckLocale?: string;
+  onSetSpellcheckLocale?: (code: string) => void;
   onOpenTemplates?: () => void;
 }
 
@@ -152,7 +155,7 @@ const DIVIDER_STYLE: React.CSSProperties = {
   flexShrink: 0,
 };
 
-export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = true, onToggleSpellcheck, onOpenTemplates }: Props) {
+export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = true, onToggleSpellcheck, spellcheckLocale = "en-US", onSetSpellcheckLocale, onOpenTemplates }: Props) {
   const components = listComponents().filter((c) => c.category === "component");
 
   if (!editor) {
@@ -503,6 +506,16 @@ export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = tr
           active={spellcheck}
           onClick={() => onToggleSpellcheck?.()}
         />
+        {onSetSpellcheckLocale && (
+          <select
+            value={spellcheckLocale}
+            onChange={(e) => onSetSpellcheckLocale(e.target.value)}
+            title="Spellcheck language"
+            style={{ fontSize: 11, padding: "2px 4px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "transparent", color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}
+          >
+            {SPELLCHECK_LOCALES.map((l) => <option key={l.code} value={l.code}>{l.code}</option>)}
+          </select>
+        )}
         <TBtn
           label="↶"
           title="Undo (Cmd+Z)"
