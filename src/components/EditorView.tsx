@@ -24,6 +24,8 @@ import { computeStats, type DocStats } from "../lib/docStats";
 import { DocStatsBar } from "./DocStatsBar";
 import { findAll, type Range } from "../lib/findReplace";
 import { FindReplaceBar } from "./FindReplaceBar";
+import { getTemplate } from "../lib/templates";
+import { TemplatePicker } from "./TemplatePicker";
 import { CollapsiblePane } from "./CollapsiblePane";
 import { FileTree } from "./FileTree";
 import { BacklinksPanel } from "./BacklinksPanel";
@@ -74,6 +76,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const [findText, setFindText] = useState("");
   const [replaceText, setReplaceText] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
+  const [templateInsertOpen, setTemplateInsertOpen] = useState(false);
 
   const toggleFiles = () => {
     const next = !filesOpen;
@@ -317,6 +320,17 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
     }
   };
 
+  // Insert a chosen template's body at the cursor (insert-into-current).
+  const handleInsertTemplate = (id: string) => {
+    setTemplateInsertOpen(false);
+    const tmpl = getTemplate(id);
+    if (!tmpl || !tiptapEditor) return;
+    const parsed = parseMdxToDoc(tmpl.body).json.content ?? [];
+    tiptapEditor.commands.focus();
+    tiptapEditor.commands.insertContent(parsed);
+    editor.markDirty();
+  };
+
   // Insert at cursor via the TipTap editor instance.
   const handleInsert = (template: string) => {
     if (!tiptapEditor) return;
@@ -459,7 +473,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         onOpenSettings={() => setSettingsOpen(true)}
         onClose={onClose}
       />
-      {editor.mode === "wysiwyg" && <EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} />}
+      {editor.mode === "wysiwyg" && <EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} onOpenTemplates={() => setTemplateInsertOpen(true)} />}
       {findOpen && editor.mode === "wysiwyg" && (
         <FindReplaceBar
           findText={findText}
@@ -610,6 +624,9 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         <AiComponentDialog onInsert={handleAiInsert} onClose={() => setAiDialogOpen(false)} />
       )}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {templateInsertOpen && (
+        <TemplatePicker onPick={handleInsertTemplate} onClose={() => setTemplateInsertOpen(false)} />
+      )}
       {searchOpen && vault.vaultPath && (
         <SearchModal
           vaultPath={vault.vaultPath}

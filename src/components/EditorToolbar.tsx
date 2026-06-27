@@ -8,6 +8,7 @@ interface Props {
   onInsertImage: () => void;
   spellcheck?: boolean;
   onToggleSpellcheck?: () => void;
+  onOpenTemplates?: () => void;
 }
 
 /// One toolbar button with optional active state.
@@ -150,7 +151,7 @@ const DIVIDER_STYLE: React.CSSProperties = {
   flexShrink: 0,
 };
 
-export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = true, onToggleSpellcheck }: Props) {
+export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = true, onToggleSpellcheck, onOpenTemplates }: Props) {
   const components = listComponents().filter((c) => c.category === "component");
 
   if (!editor) {
@@ -396,6 +397,16 @@ export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = tr
                 close();
               }}
             />
+            {onOpenTemplates && (
+              <MenuRow
+                icon="📋"
+                label="Templates…"
+                onClick={() => {
+                  onOpenTemplates();
+                  close();
+                }}
+              />
+            )}
           </>
         )}
       </Dropdown>
