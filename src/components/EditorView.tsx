@@ -25,6 +25,7 @@ import { useResizablePanel } from "../hooks/useResizablePanel";
 import { signingGenerateKeypair, signingSign } from "../lib/signing";
 import { computeStats, type DocStats } from "../lib/docStats";
 import { printDocument } from "../lib/print";
+import { ShortcutsDialog } from "./ShortcutsDialog";
 import { DocStatsBar } from "./DocStatsBar";
 import { findAll, type Range } from "../lib/findReplace";
 import { FindReplaceBar } from "./FindReplaceBar";
@@ -83,6 +84,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const [replaceText, setReplaceText] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
   const [templateInsertOpen, setTemplateInsertOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const toggleFiles = () => {
     const next = !filesOpen;
@@ -198,6 +200,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         return;
       }
       if (e.metaKey || e.ctrlKey) {
+        if (e.key === "/") { e.preventDefault(); setShortcutsOpen(true); return; }
         if (e.key === "1") { e.preventDefault(); toggleFiles(); }
         else if (e.key === "2") { e.preventDefault(); toggleNav(); }
         else if (e.key === "3") { e.preventDefault(); toggleAi(); }
@@ -528,6 +531,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         onExport={() => printDocument()}
         onToggleMode={handleToggleMode}
         onOpenSettings={() => setSettingsOpen(true)}
+        onShowShortcuts={() => setShortcutsOpen(true)}
         onClose={onClose}
       />
       {draft && <DraftBanner onRestore={restoreDraft} onDiscard={discardDraft} />}
@@ -685,6 +689,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         <AiComponentDialog onInsert={handleAiInsert} onClose={() => setAiDialogOpen(false)} />
       )}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
       {templateInsertOpen && (
         <TemplatePicker onPick={handleInsertTemplate} onClose={() => setTemplateInsertOpen(false)} />
       )}

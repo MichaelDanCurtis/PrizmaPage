@@ -8,10 +8,11 @@ interface Props {
   onExport: () => void;
   onToggleMode: () => void;
   onOpenSettings: () => void;
+  onShowShortcuts: () => void;
   onClose: () => void;
 }
 
-export function EditorTopBar({ filename, dirty, saving, mode, onSave, onSign, onExport, onToggleMode, onOpenSettings, onClose }: Props) {
+export function EditorTopBar({ filename, dirty, saving, mode, onSave, onSign, onExport, onToggleMode, onOpenSettings, onShowShortcuts, onClose }: Props) {
   return (
     <div
       style={{
@@ -40,6 +41,21 @@ export function EditorTopBar({ filename, dirty, saving, mode, onSave, onSign, on
           }}
         >
           ⚙
+        </button>
+        <button
+          onClick={onShowShortcuts}
+          title="Keyboard shortcuts (Cmd+/)"
+          className="no-print"
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "var(--text-muted)",
+            cursor: "pointer",
+            fontSize: 14,
+            padding: "4px 8px",
+          }}
+        >
+          ?
         </button>
         <button
           onClick={onExport}
