@@ -262,6 +262,18 @@ export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = tr
         active={editor.isActive("strike")}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       />
+      <TBtn
+        label="X₂"
+        title="Subscript"
+        active={editor.isActive("subscript")}
+        onClick={() => editor.chain().focus().toggleSubscript().run()}
+      />
+      <TBtn
+        label="X²"
+        title="Superscript"
+        active={editor.isActive("superscript")}
+        onClick={() => editor.chain().focus().toggleSuperscript().run()}
+      />
       <label title="Text color" style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>A</span>
         <input

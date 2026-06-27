@@ -222,7 +222,7 @@ function isBlockStart(line: string): boolean {
 function parseInline(text: string): DocNode[] {
   const nodes: DocNode[] = [];
   // Order matters: wikilink [[X]] before single-bracket link/image, <u> before tags.
-  const regex = /(\[\[[^\]]+\]\]|\*\*[^*]+\*\*|\*[^*]+\*|~~[^~]+~~|`[^`]+`|<u>[^<]+<\/u>|!\[[^\]]*\]\([^)\s]+\)|\[[^\]]+\]\([^)\s]+\))/g;
+  const regex = /(\[\[[^\]]+\]\]|\*\*[^*]+\*\*|\*[^*]+\*|~~[^~]+~~|`[^`]+`|<u>[^<]+<\/u>|<sub>[^<]+<\/sub>|<sup>[^<]+<\/sup>|!\[[^\]]*\]\([^)\s]+\)|\[[^\]]+\]\([^)\s]+\))/g;
   let lastIdx = 0;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
@@ -244,6 +244,10 @@ function parseInline(text: string): DocNode[] {
       nodes.push({ type: "text", text: token.slice(1, -1), marks: [{ type: "italic" }] });
     } else if (token.startsWith("<u>") && token.endsWith("</u>")) {
       nodes.push({ type: "text", text: token.slice(3, -4), marks: [{ type: "underline" }] });
+    } else if (token.startsWith("<sub>") && token.endsWith("</sub>")) {
+      nodes.push({ type: "text", text: token.slice(5, -6), marks: [{ type: "subscript" }] });
+    } else if (token.startsWith("<sup>") && token.endsWith("</sup>")) {
+      nodes.push({ type: "text", text: token.slice(5, -6), marks: [{ type: "superscript" }] });
     } else if (token.startsWith("![")) {
       const m = token.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/)!;
       nodes.push({ type: "image", attrs: { alt: m[1], src: m[2] } });
@@ -407,6 +411,8 @@ function serializeInline(nodes: DocNode[]): string {
         if (marks.some((m) => m.type === "italic")) out = `*${out}*`;
         if (marks.some((m) => m.type === "strike")) out = `~~${out}~~`;
         if (marks.some((m) => m.type === "underline")) out = `<u>${out}</u>`;
+        if (marks.some((m) => m.type === "subscript")) out = `<sub>${out}</sub>`;
+        if (marks.some((m) => m.type === "superscript")) out = `<sup>${out}</sup>`;
         if (marks.some((m) => m.type === "code")) out = `\`${out}\``;
         if (marks.some((m) => m.type === "link")) {
           const href = marks.find((m) => m.type === "link")?.attrs?.href ?? "";

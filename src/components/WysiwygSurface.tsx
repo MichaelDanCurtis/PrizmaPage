@@ -2,6 +2,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
+import Subscript from "@tiptap/extension-subscript";
+import Superscript from "@tiptap/extension-superscript";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
@@ -50,6 +52,8 @@ export function WysiwygSurface({ doc, onChange, onEditorReady, onAiComponent, sp
     extensions: [
       StarterKit,
       Underline,
+      Subscript,
+      Superscript,
       TextStyle,
       Color,
       Highlight.configure({ multicolor: false }),

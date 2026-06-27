@@ -233,4 +233,22 @@ describe("MDX serializer round-trip", () => {
     expect(defBlock.attrs.ref).toBe("a");
     expect(JSON.stringify(defBlock)).toContain("detail here");
   });
+
+  it("round-trips subscript (<sub>)", () => {
+    const mdx = "Water is H<sub>2</sub>O.\n";
+    const doc = parseMdxToDoc(mdx);
+    const para = (doc.json.content as any[])[0];
+    const sub = para.content.find((n: any) => n.marks?.some((m: any) => m.type === "subscript"));
+    expect(sub).toBeDefined();
+    expect(serializeDoc(doc).trim()).toBe(mdx.trim());
+  });
+
+  it("round-trips superscript (<sup>)", () => {
+    const mdx = "Energy is mc<sup>2</sup>.\n";
+    const doc = parseMdxToDoc(mdx);
+    const para = (doc.json.content as any[])[0];
+    const sup = para.content.find((n: any) => n.marks?.some((m: any) => m.type === "superscript"));
+    expect(sup).toBeDefined();
+    expect(serializeDoc(doc).trim()).toBe(mdx.trim());
+  });
 });
