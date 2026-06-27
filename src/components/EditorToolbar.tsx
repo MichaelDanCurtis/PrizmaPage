@@ -3,6 +3,8 @@ import type { Editor } from "@tiptap/react";
 import { listComponents } from "../registry/ComponentRegistry";
 import { LANGUAGES } from "../lib/languages";
 import { SPELLCHECK_LOCALES } from "../hooks/useSpellcheck";
+import { toUpperCase, toLowerCase, toTitleCase, toSentenceCase } from "../lib/case";
+import { EMOJIS } from "../lib/emoji";
 
 interface Props {
   editor: Editor | null;
@@ -497,6 +499,56 @@ export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = tr
         title="Divider"
         onClick={() => onInsert("<Divider />")}
       />
+
+      <div style={DIVIDER_STYLE} />
+
+      {/* Indent / outdent (list-item sink/lift from StarterKit). */}
+      <TBtn label="→" title="Indent" onClick={() => editor.chain().focus().sinkListItem("listItem").run()} />
+      <TBtn label="←" title="Outdent" onClick={() => editor.chain().focus().liftListItem("listItem").run()} />
+
+      <div style={DIVIDER_STYLE} />
+
+      {/* Case toggling over the selection. */}
+      <Dropdown
+        trigger={<span style={{ display: "flex", alignItems: "center", gap: 3 }}>Aa <span style={{ fontSize: 8, opacity: 0.6 }}>▾</span></span>}
+      >
+        {(close) => {
+          const { from, to, empty } = editor.state.selection;
+          const run = (fn: (s: string) => string) => {
+            if (empty) return;
+            const text = editor.state.doc.textBetween(from, to, "\n");
+            editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, fn(text)).run();
+            close();
+          };
+          return (
+            <>
+              <MenuRow icon="" label="UPPERCASE" onClick={() => run(toUpperCase)} />
+              <MenuRow icon="" label="lowercase" onClick={() => run(toLowerCase)} />
+              <MenuRow icon="" label="Title Case" onClick={() => run(toTitleCase)} />
+              <MenuRow icon="" label="Sentence case" onClick={() => run(toSentenceCase)} />
+            </>
+          );
+        }}
+      </Dropdown>
+
+      {/* Emoji picker */}
+      <Dropdown trigger={<span>😀</span>} align="right">
+        {(close) => (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 2, maxWidth: 280 }}>
+            {EMOJIS.map((e) => (
+              <div
+                key={e}
+                onClick={() => { editor.chain().focus().insertContent(e).run(); close(); }}
+                style={{ fontSize: 18, cursor: "pointer", padding: 4, textAlign: "center", borderRadius: "var(--radius-sm)" }}
+                onMouseEnter={(ev) => (ev.currentTarget.style.background = "var(--bg-muted)")}
+                onMouseLeave={(ev) => (ev.currentTarget.style.background = "transparent")}
+              >
+                {e}
+              </div>
+            ))}
+          </div>
+        )}
+      </Dropdown>
 
       {/* Undo / Redo */}
       <div style={{ marginLeft: "auto", display: "flex", gap: 2 }}>

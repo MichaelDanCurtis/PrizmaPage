@@ -60,7 +60,7 @@ export function WysiwygSurface({ doc, onChange, onEditorReady, onAiComponent, sp
       Color,
       Highlight.configure({ multicolor: false }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Link.configure({ openOnClick: false }),
+      Link.configure({ openOnClick: false, autolink: true }),
       ImageResize,
       TaskList,
       TaskItem.configure({ nested: true }),
