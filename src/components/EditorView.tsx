@@ -60,9 +60,11 @@ interface Props {
   onClose: () => void;
   /// Open a different note from the file tree (bubbles to App's open.openRecent).
   onOpenNote?: (path: string) => void;
+  /// Import a .md file as a new unsaved document (bubbles to App).
+  onImportMarkdown?: () => void;
 }
 
-export function EditorView({ document: initialDoc, filename, path, onClose, onOpenNote }: Props) {
+export function EditorView({ document: initialDoc, filename, path, onClose, onOpenNote, onImportMarkdown }: Props) {
   const editor = useEditorState();
   const spell = useSpellcheck();
   const focus = useFocusMode();
@@ -322,6 +324,11 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   };
 
   const handleSave = async () => {
+    // Imported (unsaved) docs have no path yet — require a save-as first.
+    if (!path) {
+      alert("This imported document has no file yet. Use Save As (coming) — for now, place it in a vault or use New to save.");
+      return;
+    }
     editor.setSaving(true);
     try {
       const source = editor.mode === "wysiwyg" ? serializeDoc(doc) : rawSource;
@@ -582,6 +589,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         onExportPdf={() => printDocument()}
         onExportHtml={exportHtml}
         onExportMarkdown={exportMarkdown}
+        onImportMarkdown={onImportMarkdown ?? (() => {})}
         onToggleMode={handleToggleMode}
         onOpenSettings={() => setSettingsOpen(true)}
         onShowShortcuts={() => setShortcutsOpen(true)}

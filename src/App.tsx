@@ -49,6 +49,7 @@ export function App() {
         path={open.path ?? ""}
         onClose={open.closeEditor}
         onOpenNote={(p) => open.openRecent(p)}
+        onImportMarkdown={() => { void open.importMarkdown(); }}
       />
     );
   }
@@ -170,6 +171,7 @@ export function App() {
           recents={recents}
           onOpen={open.openViaPicker}
           onNew={open.createNew}
+          onImportMarkdown={() => { void open.importMarkdown(); }}
           onDrop={open.openViaDrop}
           onOpenRecent={open.openRecent}
           onOpenWelcome={() => {

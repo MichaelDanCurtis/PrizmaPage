@@ -11,6 +11,7 @@ interface Props {
   onExportPdf: () => void;
   onExportHtml: () => void;
   onExportMarkdown: () => void;
+  onImportMarkdown: () => void;
   onToggleMode: () => void;
   onOpenSettings: () => void;
   onShowShortcuts: () => void;
@@ -19,7 +20,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function EditorTopBar({ filename, dirty, saving, mode, focusEnabled, onSave, onSign, onExportPdf, onExportHtml, onExportMarkdown, onToggleMode, onOpenSettings, onShowShortcuts, onToggleFocus, onOpenHistory, onClose }: Props) {
+export function EditorTopBar({ filename, dirty, saving, mode, focusEnabled, onSave, onSign, onExportPdf, onExportHtml, onExportMarkdown, onImportMarkdown, onToggleMode, onOpenSettings, onShowShortcuts, onToggleFocus, onOpenHistory, onClose }: Props) {
   const [exportOpen, setExportOpen] = useState(false);
   return (
     <div
@@ -138,6 +139,7 @@ export function EditorTopBar({ filename, dirty, saving, mode, focusEnabled, onSa
                 { label: "PDF / Print", fn: onExportPdf },
                 { label: "HTML", fn: onExportHtml },
                 { label: "Markdown", fn: onExportMarkdown },
+                { label: "Import Markdown…", fn: onImportMarkdown },
               ].map((opt) => (
                 <div
                   key={opt.label}
