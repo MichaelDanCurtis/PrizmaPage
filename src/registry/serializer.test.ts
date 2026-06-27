@@ -214,4 +214,23 @@ describe("MDX serializer round-trip", () => {
     const blocks = doc.json.content as any[];
     expect(blocks.some((b) => b.type === "table")).toBe(false);
   });
+
+  it("round-trips a footnote reference + definition", () => {
+    const mdx = "Body with a note[^1].\n\n[^1]: the footnote text\n";
+    const doc = parseMdxToDoc(mdx);
+    // The definition must parse as a structured footnoteDefinition node.
+    const defBlock = (doc.json.content as any[]).find((b) => b.type === "footnoteDefinition");
+    expect(defBlock).toBeDefined();
+    expect(defBlock.attrs.ref).toBe("1");
+    expect(serializeDoc(doc).trim()).toContain("[^1]: the footnote text");
+  });
+
+  it("preserves footnote text in the parsed doc", () => {
+    const mdx = "See[^a] for detail.\n\n[^a]: detail here\n";
+    const doc = parseMdxToDoc(mdx);
+    const defBlock = (doc.json.content as any[]).find((b) => b.type === "footnoteDefinition");
+    expect(defBlock).toBeDefined();
+    expect(defBlock.attrs.ref).toBe("a");
+    expect(JSON.stringify(defBlock)).toContain("detail here");
+  });
 });

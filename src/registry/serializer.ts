@@ -147,6 +147,17 @@ export function parseMdxToDoc(mdx: string): Doc {
       content.push({ type: "table", content: rows });
       continue;
     }
+    // Footnote definition: [^id]: text  (parses to a structured node).
+    const fnDef = line.match(/^\[\^([^\]]+)\]:\s*(.*)$/);
+    if (fnDef) {
+      content.push({
+        type: "footnoteDefinition",
+        attrs: { ref: fnDef[1] },
+        content: [{ type: "paragraph", content: parseInline(fnDef[2]) }],
+      });
+      i++;
+      continue;
+    }
     // JSX component (single line, possibly multi-line for children).
     const trimmed = line.trim();
     if (trimmed.startsWith("<") && trimmed.endsWith("/>")) {
@@ -346,6 +357,11 @@ function serializeNode(node: DocNode): string {
     case "tableCell":
       // Handled by the table case above; emit inner text if reached standalone.
       return serializeInline(node.content?.[0]?.content ?? []);
+    case "footnoteDefinition": {
+      const ref = (node.attrs?.ref as string) ?? "";
+      const inner = serializeInline(node.content?.[0]?.content ?? []);
+      return `[^${ref}]: ${inner}`;
+    }
     case "image": {
       const alt = (node.attrs?.alt as string) ?? "";
       const src = (node.attrs?.src as string) ?? "";
