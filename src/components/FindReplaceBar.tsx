@@ -1,4 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+
+export interface FindResult {
+  index: number;
+  context: string; // ~30 chars around the match
+}
 
 interface Props {
   findText: string;
@@ -7,8 +12,10 @@ interface Props {
   onReplaceChange: (v: string) => void;
   matchCount: number;
   matchIndex: number; // 0-based current match
+  results: FindResult[]; // all matches with context (for the results list)
   onNext: () => void;
   onPrev: () => void;
+  onJump: (index: number) => void;
   onReplaceOne: () => void;
   onReplaceAll: () => void;
   onClose: () => void;
@@ -35,8 +42,9 @@ const btn = (): React.CSSProperties => ({
   fontFamily: "var(--font-sans)",
 });
 
-export function FindReplaceBar({ findText, replaceText, onFindChange, onReplaceChange, matchCount, matchIndex, onNext, onPrev, onReplaceOne, onReplaceAll, onClose }: Props) {
+export function FindReplaceBar({ findText, replaceText, onFindChange, onReplaceChange, matchCount, matchIndex, results, onNext, onPrev, onJump, onReplaceOne, onReplaceAll, onClose }: Props) {
   const findRef = useRef<HTMLInputElement>(null);
+  const [showResults, setShowResults] = useState(false);
   useEffect(() => { findRef.current?.focus(); findRef.current?.select(); }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -53,8 +61,31 @@ export function FindReplaceBar({ findText, replaceText, onFindChange, onReplaceC
         <span style={{ fontSize: 11, color: "var(--text-faint)", minWidth: 70 }}>{shown}</span>
         <button title="Previous" onClick={onPrev} style={btn()}>↑</button>
         <button title="Next" onClick={onNext} style={btn()}>↓</button>
+        <button title="Toggle all results" onClick={() => setShowResults((v) => !v)} style={btn()}>≡</button>
         <button title="Close" onClick={onClose} style={{ ...btn(), marginLeft: "auto" }}>✕</button>
       </div>
+      {showResults && results.length > 0 && (
+        <div style={{ maxHeight: 140, overflow: "auto", borderTop: "1px solid var(--border-soft)", marginTop: 2, paddingTop: 4 }}>
+          {results.map((r) => (
+            <div
+              key={r.index}
+              onClick={() => onJump(r.index)}
+              title="Jump to this match"
+              style={{
+                padding: "3px 8px", cursor: "pointer", fontSize: 11, color: "var(--text)",
+                background: r.index === matchIndex ? "var(--accent-soft)" : "transparent",
+                borderRadius: "var(--radius-sm)",
+                fontFamily: "var(--font-mono)",
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}
+              onMouseEnter={(e) => { if (r.index !== matchIndex) e.currentTarget.style.background = "var(--bg-muted)"; }}
+              onMouseLeave={(e) => { if (r.index !== matchIndex) e.currentTarget.style.background = "transparent"; }}
+            >
+              <span style={{ color: "var(--text-faint)", marginRight: 6 }}>{r.index + 1}.</span>{r.context}
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <input value={replaceText} placeholder="Replace" onChange={(e) => onReplaceChange(e.target.value)} style={inputStyle} />
         <button title="Replace" onClick={onReplaceOne} style={btn()}>Replace</button>

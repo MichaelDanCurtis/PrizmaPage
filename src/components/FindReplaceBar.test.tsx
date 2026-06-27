@@ -9,8 +9,14 @@ const baseProps = {
   onReplaceChange: vi.fn(),
   matchCount: 3,
   matchIndex: 1,
+  results: [
+    { index: 0, context: "first foo here" },
+    { index: 1, context: "second foo" },
+    { index: 2, context: "third foo" },
+  ],
   onNext: vi.fn(),
   onPrev: vi.fn(),
+  onJump: vi.fn(),
   onReplaceOne: vi.fn(),
   onReplaceAll: vi.fn(),
   onClose: vi.fn(),
@@ -43,5 +49,18 @@ describe("FindReplaceBar", () => {
     render(<FindReplaceBar {...baseProps} onClose={onClose} />);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("toggles the results list and calls onJump on click", () => {
+    const onJump = vi.fn();
+    render(<FindReplaceBar {...baseProps} onJump={onJump} />);
+    // Results hidden initially.
+    expect(screen.queryByText("second foo")).not.toBeInTheDocument();
+    // Toggle on.
+    fireEvent.click(screen.getByTitle("Toggle all results"));
+    expect(screen.getByText("second foo")).toBeInTheDocument();
+    // Clicking a result jumps.
+    fireEvent.click(screen.getByText("third foo"));
+    expect(onJump).toHaveBeenCalledWith(2);
   });
 });

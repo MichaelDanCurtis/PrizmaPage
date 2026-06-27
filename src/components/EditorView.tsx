@@ -139,6 +139,13 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
     ? findAll(flatText, findText, {})
     : [];
 
+  // Build context snippets for the find-all results list.
+  const findResults: { index: number; context: string }[] = matches.map((m, i) => {
+    const start = Math.max(0, m.from - 30);
+    const ctx = flatText.slice(start, m.to + 30).replace(/\s+/g, " ").trim();
+    return { index: i, context: ctx };
+  });
+
   const jumpTo = (i: number) => {
     if (!tiptapEditor || matches.length === 0) return;
     const idx = ((i % matches.length) + matches.length) % matches.length;
@@ -589,8 +596,10 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
           onReplaceChange={setReplaceText}
           matchCount={matches.length}
           matchIndex={matches.length === 0 ? -1 : Math.min(matchIndex, matches.length - 1)}
+          results={findResults}
           onNext={nextMatch}
           onPrev={prevMatch}
+          onJump={jumpTo}
           onReplaceOne={replaceOne}
           onReplaceAll={replaceAll}
           onClose={() => setFindOpen(false)}
