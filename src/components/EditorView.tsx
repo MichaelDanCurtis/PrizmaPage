@@ -9,6 +9,7 @@ import { topBlockInsertPos } from "../registry/blockInsert";
 import { useEditorState } from "../hooks/useEditorState";
 import { useSpellcheck } from "../hooks/useSpellcheck";
 import { useFocusMode } from "../hooks/useFocusMode";
+import { useReadingRuler } from "../hooks/useReadingRuler";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { readDraft, clearDraft, writeDraft } from "../lib/draftStore";
 import { DraftBanner } from "./DraftBanner";
@@ -68,6 +69,8 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const editor = useEditorState();
   const spell = useSpellcheck();
   const focus = useFocusMode();
+  const ruler = useReadingRuler();
+  const [rulerTop, setRulerTop] = useState<number | null>(null);
   const autosaveEnabled = localStorage.getItem("prizma.editor.autosave") !== "0";
   const [draft, setDraft] = useState(() => readDraft(path));
   const [goal, setGoal] = useState<number>(() => Number(localStorage.getItem("prizma.editor.goal")) || 0);
@@ -203,6 +206,11 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         setOutlineJumpOpen(true);
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        ruler.toggle();
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen(true);
@@ -260,9 +268,16 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       const { from, to, empty } = tiptapEditor.state.selection;
       if (empty) {
         setSelection(null);
-        return;
+      } else {
+        setSelection(tiptapEditor.state.doc.textBetween(from, to, " "));
       }
-      setSelection(tiptapEditor.state.doc.textBetween(from, to, " "));
+      // Reading ruler: track the caret line's vertical position.
+      if (ruler.enabled) {
+        try {
+          const coords = tiptapEditor.view.coordsAtPos(tiptapEditor.state.selection.from);
+          setRulerTop(coords.top);
+        } catch { /* ignore */ }
+      }
     };
     tiptapEditor.on("selectionUpdate", update);
     return () => {
@@ -774,6 +789,9 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
       <LinkPopover editor={tiptapEditor} />
+      {ruler.enabled && rulerTop !== null && (
+        <div className="no-print" style={{ position: "fixed", left: 0, right: 0, top: rulerTop, height: 22, background: "var(--accent-soft)", opacity: 0.45, pointerEvents: "none", zIndex: 1 }} />
+      )}
       {historyOpen && vault.vaultPath && (
         <HistoryPanel
           vaultPath={vault.vaultPath}

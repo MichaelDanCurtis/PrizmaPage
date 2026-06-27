@@ -17,5 +17,6 @@ export const SHORTCUTS: Shortcut[] = [
   { group: "View", keys: `${M}+K`, description: "AI command palette" },
   { group: "View", keys: `${M}+Shift+F`, description: "Search vault" },
   { group: "View", keys: `${M}.`, description: "Toggle focus mode" },
+  { group: "View", keys: `${M}+Shift+R`, description: "Toggle reading ruler" },
   { group: "Navigate", keys: `${M}+Shift+O`, description: "Jump to heading" },
 ];
