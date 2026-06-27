@@ -19,7 +19,11 @@ function inlineMd(text: string): string {
 /// Minimal markdown→HTML for a readable standalone export (headings,
 /// paragraphs, bold/italic/code, lists, links, code fences). Not a full
 /// CommonMark engine — the goal is a handoff doc the recipient can read.
-function markdownToHtml(md: string): string {
+function slugify(text: string): string {
+  return text.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-");
+}
+
+function markdownToHtml(md: string, toc?: { level: number; text: string; slug: string }[]): string {
   const lines = md.split("\n");
   const out: string[] = [];
   let i = 0;
@@ -31,7 +35,14 @@ function markdownToHtml(md: string): string {
     if (line.startsWith("```")) { if (inFence) { flushCode(); inFence = false; } else { inFence = true; } i++; continue; }
     if (inFence) { codeBuf.push(line); i++; continue; }
     const h = line.match(/^(#{1,6})\s+(.*)$/);
-    if (h) { out.push(`<h${h[1].length}>${inlineMd(h[2])}</h${h[1].length}>`); i++; continue; }
+    if (h) {
+      const level = h[1].length;
+      const inner = inlineMd(h[2]);
+      const slug = slugify(h[2]);
+      if (toc) toc.push({ level, text: h[2], slug });
+      out.push(`<h${level} id="${slug}">${inner}</h${level}>`);
+      i++; continue;
+    }
     if (/^[*+-]\s+/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^[*+-]\s+/.test(lines[i])) { items.push(`<li>${inlineMd(lines[i].replace(/^[*+-]\s+/, ""))}</li>`); i++; }
@@ -49,9 +60,14 @@ function markdownToHtml(md: string): string {
   return out.join("\n");
 }
 
-/// HTML export: a self-contained styled document with the prose rendered.
+/// HTML export: a self-contained styled document with the prose rendered,
+/// including a generated table-of-contents nav from the headings.
 export function buildHtmlExport(source: string): string {
-  const body = markdownToHtml(source);
+  const toc: { level: number; text: string; slug: string }[] = [];
+  const body = markdownToHtml(source, toc);
+  const tocNav = toc.length > 0
+    ? `<nav style="border:1px solid #ddd;border-radius:6px;padding:12px 16px;margin-bottom:24px;background:#fafafa"><div style="font-weight:600;margin-bottom:8px">Contents</div><ul style="padding-left:20px;margin:0">${toc.map((h) => `<li style="margin-left:${(h.level - 1) * 12}px"><a href="#${h.slug}">${escapeHtml(h.text)}</a></li>`).join("")}</ul></nav>`
+    : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -68,6 +84,7 @@ export function buildHtmlExport(source: string): string {
 </style>
 </head>
 <body>
+${tocNav}
 ${body}
 </body>
 </html>`;
