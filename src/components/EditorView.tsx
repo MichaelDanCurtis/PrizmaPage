@@ -8,6 +8,9 @@ import { serializeDoc, parseMdxToDoc, type Doc } from "../registry/serializer";
 import { topBlockInsertPos } from "../registry/blockInsert";
 import { useEditorState } from "../hooks/useEditorState";
 import { useSpellcheck } from "../hooks/useSpellcheck";
+import { useAutoSave } from "../hooks/useAutoSave";
+import { readDraft, clearDraft, writeDraft } from "../lib/draftStore";
+import { DraftBanner } from "./DraftBanner";
 import { EditorTopBar } from "./EditorTopBar";
 import { EditorToolbar } from "./EditorToolbar";
 import { WysiwygSurface } from "./WysiwygSurface";
@@ -52,6 +55,8 @@ interface Props {
 export function EditorView({ document: initialDoc, filename, path, onClose, onOpenNote }: Props) {
   const editor = useEditorState();
   const spell = useSpellcheck();
+  const autosaveEnabled = localStorage.getItem("prizma.editor.autosave") !== "0";
+  const [draft, setDraft] = useState(() => readDraft(path));
   const [doc, setDoc] = useState<Doc>(() => parseMdxToDoc(initialDoc.content_md));
   const [rawSource, setRawSource] = useState<string>(initialDoc.content_md);
   const [peekComponent, setPeekComponent] = useState<string | null>(null);
@@ -265,6 +270,9 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const handleChange = (newDoc: Doc) => {
     setDoc(newDoc);
     editor.markDirty();
+    // Persist a draft snapshot + arm the auto-save timer.
+    writeDraft(path, serializeDoc(newDoc), Date.now());
+    notifyEditRef.current();
   };
 
   const handleToggleMode = () => {
@@ -294,6 +302,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         manifest: initialDoc.manifest,
       });
       editor.markSaved();
+      clearDraft(path); // a successful save obsoletes any draft
     } catch (e) {
       alert(`Save failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -303,6 +312,22 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   // Sync the save ref on every render so the Cmd+S listener (bound once) calls
   // the latest closure of handleSave.
   handleSaveRef.current = handleSave;
+
+  // Debounced auto-save: schedules a save 3s after an edit when dirty.
+  const { notifyEdit } = useAutoSave({ dirty: editor.dirty, enabled: autosaveEnabled, save: handleSave });
+  // Keep a ref so handleChange (defined above) can trigger the timer without a
+  // forward-reference to useAutoSave's return.
+  const notifyEditRef = useRef(notifyEdit);
+  notifyEditRef.current = notifyEdit;
+
+  const restoreDraft = () => {
+    if (!draft) return;
+    setDoc(parseMdxToDoc(draft.contentMd));
+    setRawSource(draft.contentMd);
+    editor.markDirty();
+    setDraft(null);
+  };
+  const discardDraft = () => { clearDraft(path); setDraft(null); };
 
   // Sign the document: reuse a stored keyid, or generate a new keypair first.
   const handleSign = async () => {
@@ -505,6 +530,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         onOpenSettings={() => setSettingsOpen(true)}
         onClose={onClose}
       />
+      {draft && <DraftBanner onRestore={restoreDraft} onDiscard={discardDraft} />}
       {editor.mode === "wysiwyg" && <div className="no-print"><EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} onOpenTemplates={() => setTemplateInsertOpen(true)} /></div>}
       {findOpen && editor.mode === "wysiwyg" && (
         <FindReplaceBar
@@ -621,7 +647,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
               spellcheck={spell.enabled}
             />
           ) : (
-            <RawEditor value={rawSource} onChange={(v) => { setRawSource(v); editor.markDirty(); }} />
+            <RawEditor value={rawSource} onChange={(v) => { setRawSource(v); editor.markDirty(); writeDraft(path, v, Date.now()); notifyEditRef.current(); }} />
           )}
         </div>
         {/* AI pane */}
