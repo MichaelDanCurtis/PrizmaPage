@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { Editor } from "@tiptap/react";
 import { listComponents } from "../registry/ComponentRegistry";
+import { LANGUAGES } from "../lib/languages";
 
 interface Props {
   editor: Editor | null;
@@ -357,6 +358,42 @@ export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = tr
           <div style={DIVIDER_STYLE} />
         </>
       )}
+
+      {/* CodeBlock language picker — only when a CodeBlock component is selected. */}
+      {editor.isActive("component") && (() => {
+        // Find the selected CodeBlock component node + its current language.
+        const { $from } = editor.state.selection;
+        let codeNode: { pos: number; lang: string; attrs: Record<string, unknown> } | null = null;
+        for (let d = $from.depth; d > 0; d--) {
+          const node = $from.node(d);
+          if (node.type.name === "component" && node.attrs?._name === "CodeBlock") {
+            codeNode = { pos: $from.before(d), lang: String(node.attrs?.language ?? "text"), attrs: { ...(node.attrs as object) } };
+            break;
+          }
+        }
+        if (!codeNode) return null;
+        return (
+          <>
+            <div style={DIVIDER_STYLE} />
+            <label title="Code language" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-sans)" }}>
+              lang
+              <select
+                value={codeNode.lang}
+                onChange={(e) => {
+                  const pos = codeNode!.pos;
+                  const newAttrs = { ...codeNode!.attrs, language: e.target.value };
+                  editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, newAttrs));
+                  editor.chain().focus().run();
+                }}
+                style={{ fontSize: 11, padding: "2px 4px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--bg)", color: "var(--text)", fontFamily: "var(--font-sans)" }}
+              >
+                {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </label>
+            <div style={DIVIDER_STYLE} />
+          </>
+        );
+      })()}
 
       <div style={DIVIDER_STYLE} />
 
