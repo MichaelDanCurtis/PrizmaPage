@@ -32,6 +32,7 @@ import { HistoryPanel } from "./HistoryPanel";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { OutlineJump } from "./OutlineJump";
 import { LinkPopover } from "./LinkPopover";
+import { CommentsPanel } from "./CommentsPanel";
 import { DocStatsBar } from "./DocStatsBar";
 import { GoalBar } from "./GoalBar";
 import { findAll, type Range } from "../lib/findReplace";
@@ -84,7 +85,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
   const [filesWidth] = useState(() => Number(localStorage.getItem("prizma.pane.filesWidth")) || 180);
   const [navOpen, setNavOpen] = useState(() => localStorage.getItem("prizma.pane.nav") !== "0");
   const [navWidth] = useState(() => Number(localStorage.getItem("prizma.pane.navWidth")) || 200);
-  const [navTab, setNavTab] = useState<"outline" | "backlinks" | "graph">("outline");
+  const [navTab, setNavTab] = useState<"outline" | "backlinks" | "graph" | "comments">("outline");
   const [searchOpen, setSearchOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   // Find & replace state.
@@ -669,6 +670,17 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
             >
               Graph
             </button>
+            <button
+              onClick={() => setNavTab("comments")}
+              style={{
+                fontSize: 9, padding: "2px 8px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer",
+                background: navTab === "comments" ? "var(--accent)" : "transparent",
+                color: navTab === "comments" ? "white" : "var(--text-muted)",
+                fontWeight: navTab === "comments" ? 600 : 400,
+              }}
+            >
+              Comments
+            </button>
           </div>
           {navTab === "outline" ? (
             <TocPanel editor={tiptapEditor} />
@@ -678,12 +690,14 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
               notePaths={vault.entries.filter((e) => !e.is_folder).map((e) => e.path)}
               onOpen={(p) => onOpenNote?.(p)}
             />
-          ) : (
+          ) : navTab === "graph" ? (
             <GraphView
               entries={vault.entries}
               activePath={path}
               onOpen={(p) => onOpenNote?.(p)}
             />
+          ) : (
+            <CommentsPanel docPath={path} selection={selection} />
           )}
         </CollapsiblePane>
         )}
