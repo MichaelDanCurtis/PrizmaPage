@@ -7,6 +7,8 @@ import { vaultFileIn, getStoredVaultPath, vaultCreateNote } from "./lib/vault";
 import { getTemplate } from "./lib/templates";
 import { TemplatePicker } from "./components/TemplatePicker";
 import { printDocument } from "./lib/print";
+import { vaultCreateMemory } from "./lib/memories";
+import { MemoryDialog } from "./components/MemoryDialog";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { registerLibrary } from "./components/library";
 import { EmptyState } from "./components/EmptyState";
@@ -29,6 +31,7 @@ export function App() {
   const [workflowOpen, setWorkflowOpen] = useState(false);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const templateTarget = useRef<"note" | null>(null);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const ai = useAiConfig();
 
   useEffect(() => {
@@ -136,6 +139,14 @@ export function App() {
     (e) => !e.is_folder && e.path.includes("/Memories/")
   ).length;
 
+  // SP8: save a memory (user-created, not just agent-deposited).
+  const handleSaveMemory = async (title: string, content: string, tags: string[]) => {
+    if (!vault.vaultPath) return;
+    await vaultCreateMemory(vault.vaultPath, title, content, tags);
+    setMemoryOpen(false);
+    vault.reload();
+  };
+
   return (
     <>
       {hasVault ? (
@@ -147,6 +158,7 @@ export function App() {
           onNewNote={handleNewNote}
           onNewDailyNote={handleNewDailyNote}
           memoryCount={memoryCount}
+          onSaveMemory={() => setMemoryOpen(true)}
           onOpenNote={(p) => open.openRecent(p)}
           onOpenSingleFile={() => open.openViaPicker()}
           onOpenWorkflows={() => setWorkflowOpen(true)}
@@ -191,6 +203,9 @@ export function App() {
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {templatePickerOpen && (
         <TemplatePicker onPick={handlePickTemplate} onClose={() => setTemplatePickerOpen(false)} />
+      )}
+      {memoryOpen && (
+        <MemoryDialog onSave={handleSaveMemory} onClose={() => setMemoryOpen(false)} />
       )}
       {workflowOpen && (
         <WorkflowCanvas
