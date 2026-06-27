@@ -128,3 +128,21 @@
   background: var(--accent);
   pointer-events: none;
 }
+
+/* Drag-to-reorder handle (hovered top-level block). */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: grab;
+  font-size: 12px;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
