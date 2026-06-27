@@ -7,6 +7,7 @@ import { compileMdx } from "../lib/compile";
 import { serializeDoc, parseMdxToDoc, type Doc } from "../registry/serializer";
 import { topBlockInsertPos } from "../registry/blockInsert";
 import { useEditorState } from "../hooks/useEditorState";
+import { useSpellcheck } from "../hooks/useSpellcheck";
 import { EditorTopBar } from "./EditorTopBar";
 import { EditorToolbar } from "./EditorToolbar";
 import { WysiwygSurface } from "./WysiwygSurface";
@@ -45,6 +46,7 @@ interface Props {
 
 export function EditorView({ document: initialDoc, filename, path, onClose, onOpenNote }: Props) {
   const editor = useEditorState();
+  const spell = useSpellcheck();
   const [doc, setDoc] = useState<Doc>(() => parseMdxToDoc(initialDoc.content_md));
   const [rawSource, setRawSource] = useState<string>(initialDoc.content_md);
   const [peekComponent, setPeekComponent] = useState<string | null>(null);
@@ -363,7 +365,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
         onOpenSettings={() => setSettingsOpen(true)}
         onClose={onClose}
       />
-      {editor.mode === "wysiwyg" && <EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} />}
+      {editor.mode === "wysiwyg" && <EditorToolbar editor={tiptapEditor} onInsert={handleInsert} onInsertImage={handleInsertImage} spellcheck={spell.enabled} onToggleSpellcheck={spell.toggle} />}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* File tree pane (vault) */}
         {vault.vaultPath && (
@@ -459,6 +461,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
               onChange={handleChange}
               onEditorReady={setTiptapEditor}
               onAiComponent={() => setAiDialogOpen(true)}
+              spellcheck={spell.enabled}
             />
           ) : (
             <RawEditor value={rawSource} onChange={(v) => { setRawSource(v); editor.markDirty(); }} />

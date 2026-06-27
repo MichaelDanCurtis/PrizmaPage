@@ -1,35 +1,76 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import Underline from "@tiptap/extension-underline";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
+import Highlight from "@tiptap/extension-highlight";
+import TextAlign from "@tiptap/extension-text-align";
+import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
 import { useEffect, useRef, useState } from "react";
 import { listComponents } from "../registry/ComponentRegistry";
 import { ComponentNode } from "../registry/componentNode";
 import { docFromJson, type Doc } from "../registry/serializer";
+import { topBlockInsertPos } from "../registry/blockInsert";
+import { useInlineCompletion } from "../hooks/useInlineCompletion";
+import { CompletionHint } from "./CompletionHint";
+import { AiContextMenu } from "./AiContextMenu";
 import { SlashMenu } from "./SlashMenu";
 
 interface Props {
   doc: Doc;
   onChange: (doc: Doc) => void;
   onEditorReady?: (editor: ReturnType<typeof useEditor>) => void;
+  /// Called when the user picks "AI component…" from the slash menu. EditorView
+  /// opens the AiComponentDialog.
+  onAiComponent?: () => void;
+  /// Reflects onto the ProseMirror element's `spellcheck` attribute.
+  spellcheck?: boolean;
 }
 
-export function WysiwygSurface({ doc, onChange, onEditorReady }: Props) {
+export function WysiwygSurface({ doc, onChange, onEditorReady, onAiComponent, spellcheck = true }: Props) {
   // Slash menu state.
   const [slashOpen, setSlashOpen] = useState(false);
+  const [aiMenu, setAiMenu] = useState<{ top: number; left: number; text: string } | null>(null);
   const [slashQuery, setSlashQuery] = useState("");
   const slashRangeRef = useRef<{ from: number; to: number } | null>(null);
 
   const editor = useEditor({
     extensions: [
       StarterKit,
+      Underline,
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: false }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Link.configure({ openOnClick: false }),
+      Image,
       Placeholder.configure({ placeholder: "Type / for commands, or just start writing…" }),
       ComponentNode,
     ],
     content: doc.json,
+    // Native browser spellcheck on the editable surface. The attribute is
+    // also kept in sync reactively by the effect below.
+    editorProps: {
+      attributes: {
+        spellcheck: spellcheck ? "true" : "false",
+      },
+    },
     onUpdate: ({ editor }) => {
       onChange(docFromJson(editor.getJSON()));
     },
   });
+
+  // Keep the ProseMirror element's spellcheck attribute in sync with the prop
+  // (TipTap does not recreate the editor on prop changes).
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dom.setAttribute("spellcheck", spellcheck ? "true" : "false");
+  }, [editor, spellcheck]);
+
+  // Inline AI completion (debounced; Tab to accept).
+  const inline = useInlineCompletion(editor);
 
   // Wire slash menu to "/" keystroke via editor's handleKeyDown.
   useEffect(() => {
@@ -101,19 +142,28 @@ export function WysiwygSurface({ doc, onChange, onEditorReady }: Props) {
 
   const handleSlashSelect = (template: string) => {
     if (!editor || !slashRangeRef.current) return;
-    // Delete the "/" if it was typed, then insert the template.
+    // Empty template is the "AI component…" affordance.
+    if (template === "") {
+      setSlashOpen(false);
+      onAiComponent?.();
+      return;
+    }
     editor.commands.focus();
-    // For prose templates (start with ##, -, >, etc.), insert as text and let
-    // TipTap's markdown shortcuts convert. For component templates, insert as
-    // a node.
     if (template.startsWith("<")) {
-      // Component — insert as a generic "component" node with _name + _jsx attrs.
       const nameMatch = template.match(/^<(\w+)/);
       const name = nameMatch?.[1] ?? "Component";
-      editor.commands.insertContent({
+      // Components are block-level; if the cursor is inside a list/blockquote
+      // insert after that container instead of nesting inside it.
+      const insertPos = topBlockInsertPos(editor.state);
+      const node = {
         type: "component",
         attrs: { _name: name, _jsx: template },
-      });
+      };
+      if (insertPos === null) {
+        editor.commands.insertContent(node);
+      } else {
+        editor.commands.insertContentAt(insertPos, node);
+      }
     } else {
       editor.commands.insertContent(template);
     }
@@ -122,6 +172,14 @@ export function WysiwygSurface({ doc, onChange, onEditorReady }: Props) {
 
   return (
     <div
+      onContextMenu={(e) => {
+        if (!editor) return;
+        const { from, to, empty } = editor.state.selection;
+        if (empty) return;
+        e.preventDefault();
+        const text = editor.state.doc.textBetween(from, to, " ");
+        setAiMenu({ top: e.clientY, left: e.clientX, text });
+      }}
       style={{
         maxWidth: "var(--content-width)",
         margin: "0 auto",
@@ -138,6 +196,27 @@ export function WysiwygSurface({ doc, onChange, onEditorReady }: Props) {
           onSelect={handleSlashSelect}
           onClose={() => setSlashOpen(false)}
           editor={editor}
+        />
+      )}
+      {inline.suggestion && inline.coords && editor && (
+        <CompletionHint
+          suggestion={inline.suggestion}
+          coords={inline.coords}
+          onAccept={inline.accept}
+          onDismiss={inline.dismiss}
+        />
+      )}
+      {aiMenu && editor && (
+        <AiContextMenu
+          selection={aiMenu.text}
+          top={aiMenu.top}
+          left={aiMenu.left}
+          onApply={(result) => {
+            // Replace the current selection with the AI result.
+            const { from, to } = editor.state.selection;
+            editor.chain().focus().deleteRange({ from, to }).insertContentAt(from, result).run();
+          }}
+          onClose={() => setAiMenu(null)}
         />
       )}
     </div>

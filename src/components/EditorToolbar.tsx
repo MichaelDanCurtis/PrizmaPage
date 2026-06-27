@@ -5,6 +5,9 @@ import { listComponents } from "../registry/ComponentRegistry";
 interface Props {
   editor: Editor | null;
   onInsert: (template: string) => void;
+  onInsertImage: () => void;
+  spellcheck?: boolean;
+  onToggleSpellcheck?: () => void;
 }
 
 /// One toolbar button with optional active state.
@@ -147,7 +150,7 @@ const DIVIDER_STYLE: React.CSSProperties = {
   flexShrink: 0,
 };
 
-export function EditorToolbar({ editor, onInsert }: Props) {
+export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = true, onToggleSpellcheck }: Props) {
   const components = listComponents().filter((c) => c.category === "component");
 
   if (!editor) {
@@ -244,6 +247,56 @@ export function EditorToolbar({ editor, onInsert }: Props) {
         onClick={() => editor.chain().focus().toggleCode().run()}
       />
 
+      {/* Rich formatting: underline, strike, color, highlight */}
+      <TBtn
+        label="U"
+        title="Underline"
+        active={editor.isActive("underline")}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+      />
+      <TBtn
+        label="S"
+        title="Strikethrough"
+        active={editor.isActive("strike")}
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+      />
+      <label title="Text color" style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>A</span>
+        <input
+          type="color"
+          onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+          style={{ width: 18, height: 18, border: "none", background: "none", padding: 0, marginLeft: 2 }}
+        />
+      </label>
+      <label title="Highlight" style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+        <span style={{ fontSize: 12 }}>🖊</span>
+        <input
+          type="color"
+          onChange={(e) => editor.chain().focus().toggleHighlight({ color: e.target.value }).run()}
+          style={{ width: 18, height: 18, border: "none", background: "none", padding: 0, marginLeft: 2 }}
+        />
+      </label>
+
+      <div style={DIVIDER_STYLE} />
+
+      {/* Alignment */}
+      <TBtn label="≡" title="Align left" active={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()} />
+      <TBtn label="≣" title="Align center" active={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()} />
+      <TBtn label="≡̶" title="Align right" active={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()} />
+
+      <div style={DIVIDER_STYLE} />
+
+      {/* Link + image */}
+      <TBtn
+        label="🔗"
+        title="Add link"
+        onClick={() => {
+          const url = window.prompt("Link URL");
+          if (url) editor.chain().focus().setLink({ href: url }).run();
+        }}
+      />
+      <TBtn label="🖼" title="Insert image" onClick={onInsertImage} />
+
       <div style={DIVIDER_STYLE} />
 
       {/* List dropdown */}
@@ -339,7 +392,7 @@ export function EditorToolbar({ editor, onInsert }: Props) {
               icon="✨"
               label="AI component…"
               onClick={() => {
-                alert("AI component generation comes in Layer 3.");
+                onInsert(""); // empty template signals the AI dialog (EditorView)
                 close();
               }}
             />
@@ -356,6 +409,12 @@ export function EditorToolbar({ editor, onInsert }: Props) {
 
       {/* Undo / Redo */}
       <div style={{ marginLeft: "auto", display: "flex", gap: 2 }}>
+        <TBtn
+          label="✓ABC"
+          title={spellcheck ? "Spellcheck on — click to turn off" : "Spellcheck off — click to turn on"}
+          active={spellcheck}
+          onClick={() => onToggleSpellcheck?.()}
+        />
         <TBtn
           label="↶"
           title="Undo (Cmd+Z)"
