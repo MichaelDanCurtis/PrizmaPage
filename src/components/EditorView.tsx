@@ -29,6 +29,7 @@ import { printDocument } from "../lib/print";
 import { buildHtmlExport, buildMarkdownExport, downloadBlob } from "../lib/exportDoc";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { OutlineJump } from "./OutlineJump";
+import { LinkPopover } from "./LinkPopover";
 import { DocStatsBar } from "./DocStatsBar";
 import { GoalBar } from "./GoalBar";
 import { findAll, type Range } from "../lib/findReplace";
@@ -730,6 +731,7 @@ export function EditorView({ document: initialDoc, filename, path, onClose, onOp
       )}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {shortcutsOpen && <ShortcutsDialog onClose={() => setShortcutsOpen(false)} />}
+      <LinkPopover editor={tiptapEditor} />
       {outlineJumpOpen && (
         <OutlineJump
           editor={tiptapEditor}
