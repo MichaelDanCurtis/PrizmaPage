@@ -128,6 +128,25 @@ export function parseMdxToDoc(mdx: string): Doc {
       content.push({ type: "orderedList", content: items });
       continue;
     }
+    // GFM pipe table: a header row followed by a `| --- |` separator.
+    if (/^\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\|[\s:|-]+\|\s*$/.test(lines[i + 1]) && /\|/.test(lines[i + 1]) && lines[i + 1].includes("-")) {
+      const parseRow = (rowLine: string): DocNode[] => {
+        const cells = rowLine.replace(/^\||\|\s*$/g, "").split("|").map((c) => c.trim());
+        return cells.map((c) => ({
+          type: "tableCell",
+          content: [{ type: "paragraph", content: parseInline(c) }],
+        }));
+      };
+      const headerCells: DocNode[] = parseRow(line).map((cell) => ({ ...cell, type: "tableHeader" }));
+      i += 2; // skip header + separator
+      const rows: DocNode[] = [{ type: "tableRow", content: headerCells }];
+      while (i < lines.length && /^\|.*\|\s*$/.test(lines[i])) {
+        rows.push({ type: "tableRow", content: parseRow(lines[i]) });
+        i++;
+      }
+      content.push({ type: "table", content: rows });
+      continue;
+    }
     // JSX component (single line, possibly multi-line for children).
     const trimmed = line.trim();
     if (trimmed.startsWith("<") && trimmed.endsWith("/>")) {
@@ -310,6 +329,23 @@ function serializeNode(node: DocNode): string {
       const inner = serializeInline(node.content?.[0]?.content ?? []);
       return `- ${checked ? "[x]" : "[ ]"} ${inner}`;
     }
+    case "table": {
+      const rows = (node.content ?? []) as DocNode[];
+      if (rows.length === 0) return "";
+      const headerCells = rows[0].content ?? [];
+      const colCount = headerCells.length;
+      const cellText = (c: DocNode) => serializeInline(c.content?.[0]?.content ?? []);
+      const fmtRow = (cells: DocNode[]) => "| " + cells.map(cellText).join(" | ") + " |";
+      const separator = "| " + Array(colCount).fill("---").join(" | ") + " |";
+      const out = [fmtRow(headerCells), separator];
+      for (let r = 1; r < rows.length; r++) out.push(fmtRow(rows[r].content ?? []));
+      return out.join("\n") + "\n";
+    }
+    case "tableRow":
+    case "tableHeader":
+    case "tableCell":
+      // Handled by the table case above; emit inner text if reached standalone.
+      return serializeInline(node.content?.[0]?.content ?? []);
     case "image": {
       const alt = (node.attrs?.alt as string) ?? "";
       const src = (node.attrs?.src as string) ?? "";

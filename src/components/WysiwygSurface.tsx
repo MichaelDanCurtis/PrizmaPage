@@ -10,6 +10,10 @@ import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import Table from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
 import { useEffect, useRef, useState } from "react";
 import { listComponents } from "../registry/ComponentRegistry";
 import { ComponentNode } from "../registry/componentNode";
@@ -52,6 +56,10 @@ export function WysiwygSurface({ doc, onChange, onEditorReady, onAiComponent, sp
       Image,
       TaskList,
       TaskItem.configure({ nested: true }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Placeholder.configure({ placeholder: "Type / for commands, or just start writing…" }),
       ComponentNode,
     ],

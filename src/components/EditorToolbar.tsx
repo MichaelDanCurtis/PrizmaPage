@@ -346,6 +346,18 @@ export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = tr
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
       />
 
+      {/* Table controls — only when the cursor is inside a table. */}
+      {editor.isActive("table") && (
+        <>
+          <div style={DIVIDER_STYLE} />
+          <TBtn label="↧ row" title="Add row below" onClick={() => editor.chain().focus().addRowAfter().run()} />
+          <TBtn label="↦ col" title="Add column after" onClick={() => editor.chain().focus().addColumnAfter().run()} />
+          <TBtn label="☰" title="Toggle header row" active={editor.isActive("tableHeader")} onClick={() => editor.chain().focus().toggleHeaderRow().run()} />
+          <TBtn label="🗑" title="Delete table" onClick={() => editor.chain().focus().deleteTable().run()} />
+          <div style={DIVIDER_STYLE} />
+        </>
+      )}
+
       <div style={DIVIDER_STYLE} />
 
       {/* Insert dropdown — components + AI */}
@@ -387,6 +399,14 @@ export function EditorToolbar({ editor, onInsert, onInsertImage, spellcheck = tr
               label="Divider"
               onClick={() => {
                 onInsert("<Divider />");
+                close();
+              }}
+            />
+            <MenuRow
+              icon="⊞"
+              label="Table"
+              onClick={() => {
+                editor.chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run();
                 close();
               }}
             />

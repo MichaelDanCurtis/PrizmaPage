@@ -188,4 +188,30 @@ describe("MDX serializer round-trip", () => {
     expect(out).toContain("- bullet");
     expect(out).toContain("- [ ] task");
   });
+
+  it("round-trips a GFM table (header + 2 rows)", () => {
+    const mdx = "| H1 | H2 |\n| --- | --- |\n| a | b |\n| c | d |\n";
+    const doc = parseMdxToDoc(mdx);
+    const table = (doc.json.content as any[]).find((b) => b.type === "table");
+    expect(table).toBeDefined();
+    // Must have a header row + 2 body rows.
+    const rows = table.content;
+    expect(rows.length).toBe(3);
+    expect(serializeDoc(doc).trim()).toBe(mdx.trim());
+  });
+
+  it("round-trips a 3-column table and preserves cell text", () => {
+    const mdx = "| A | B | C |\n| --- | --- | --- |\n| 1 | 2 | 3 |\n";
+    const doc = parseMdxToDoc(mdx);
+    const table = (doc.json.content as any[]).find((b) => b.type === "table");
+    expect(table.content[1].content.length).toBe(3); // body row has 3 cells
+    expect(serializeDoc(doc).trim()).toBe(mdx.trim());
+  });
+
+  it("does not mis-parse a non-table line containing a pipe", () => {
+    const mdx = "See a | b in prose.\n";
+    const doc = parseMdxToDoc(mdx);
+    const blocks = doc.json.content as any[];
+    expect(blocks.some((b) => b.type === "table")).toBe(false);
+  });
 });
