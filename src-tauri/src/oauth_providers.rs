@@ -92,6 +92,13 @@ impl Provider for OAuthProvider {
         // (here: the OAuth access token) from the secret store.
         self.inner.complete(secret, request).await
     }
+
+    async fn list_models(
+        &self,
+        secret: &dyn SecretStore,
+    ) -> Result<Vec<String>, ProviderError> {
+        self.inner.list_models(secret).await
+    }
 }
 
 #[cfg(test)]

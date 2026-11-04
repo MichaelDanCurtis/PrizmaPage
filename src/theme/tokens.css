@@ -36,3 +36,18 @@
   --content-width: 680px;
   --content-padding: 32px;
 }
+
+/* Dark mode — applied via [data-theme="dark"] on <html> by themeStore.
+ * The runtime also applies these from DARK_OVERRIDES in tokenCatalog.ts;
+ * this block is the static fallback for first paint before JS runs. */
+[data-theme="dark"] {
+  --accent-soft: #1e1b4b;
+  --accent-border: #3730a3;
+  --bg: #0d1117;
+  --bg-muted: #161b22;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --text-faint: #6e7681;
+  --border: #30363d;
+  --border-soft: #21262d;
+}

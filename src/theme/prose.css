@@ -1,0 +1,129 @@
+/* Shared prose styles for rendered MDX output.
+ * Used by BOTH the viewer (DocumentCanvas) and the editor surface.
+ * The editor-content.css file layers TipTap-specific rules on top.
+ * Keep these two in sync: anything that affects rendered HTML belongs here.
+ */
+
+.prose {
+  color: var(--text);
+  font: var(--font-body);
+  line-height: 1.7;
+}
+
+.prose > * + * {
+  margin-top: 12px;
+}
+
+.prose h1 {
+  font: var(--font-display);
+  margin-top: 0;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.prose h2 {
+  font: var(--font-display);
+  margin-top: 28px;
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.prose h3 {
+  font: var(--font-h2);
+  margin-top: 22px;
+  margin-bottom: 6px;
+}
+
+.prose p {
+  margin: 0;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+
+.prose li {
+  margin: 4px 0;
+}
+
+.prose blockquote {
+  border-left: 3px solid var(--accent-border);
+  padding-left: 16px;
+  margin: 12px 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.prose pre {
+  background: var(--editor-bg);
+  color: var(--editor-text);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.prose code {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.prose pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.prose strong {
+  font-weight: 700;
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+
+.prose img {
+  max-width: 100%;
+  border-radius: var(--radius);
+}
+
+/* Tables (from markdown pipe tables) */
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.prose th {
+  background: var(--bg-muted);
+  font-weight: 600;
+}

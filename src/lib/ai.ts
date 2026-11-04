@@ -38,6 +38,13 @@ export function hasApiKey(provider: string): Promise<boolean> {
   return invoke<boolean>("ai_has_api_key", { provider });
 }
 
+/// List the models a provider offers. Fetches LIVE from the provider's models
+/// endpoint — never hardcoded. Returns an empty array if the provider can't
+/// enumerate (in which case the user types a model name manually).
+export function listModels(provider: string): Promise<string[]> {
+  return invoke<string[]>("ai_list_models", { provider });
+}
+
 // ===== OAuth device-flow (Copilot, Codex) =====
 
 export interface OAuthInstructions {
@@ -121,3 +128,29 @@ export function complete(req: CompleteRequest): Promise<CompletionResponse> {
     messages: req.messages.map((m) => [m.role, m.content] as [string, string]),
   });
 }
+
+// ===== Author-time component generation =====
+
+/// There is NO hardcoded default model map. The model list is fetched LIVE
+/// from each provider's /models endpoint via listModels(). This stub exists
+/// only as a fallback for code paths that need a string before the user has
+/// picked one — it returns empty, and the UI must prompt the user to choose.
+export function defaultModelFor(_provider: string): string {
+  return "";
+}
+
+// Kept for backward compat with older imports; no longer a real map.
+export const DEFAULT_MODELS: Record<string, string> = {};
+
+/// Generate a component's JSX from a natural-language prompt. This is an
+/// author-time affordance (editor only) — NOT gated by the document's
+/// runtime capabilities, per the architecture's "AI generation is author-time
+/// only" decision.
+export function aiAuthorComponent(
+  provider: string,
+  model: string,
+  prompt: string
+): Promise<string> {
+  return invoke<string>("ai_author_component", { provider, model, prompt });
+}
+

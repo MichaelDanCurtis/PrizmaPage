@@ -57,21 +57,46 @@ pub trait Provider: Send + Sync {
         secret: &dyn SecretStore,
         request: &CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError>;
+
+    /// List the models this provider offers. Fetched live from the provider's
+    /// /v1/models (or equivalent) endpoint using the stored credential.
+    /// Providers that can't list models return an empty vec.
+    async fn list_models(
+        &self,
+        _secret: &dyn SecretStore,
+    ) -> Result<Vec<String>, ProviderError> {
+        Ok(Vec::new())
+    }
 }
 
 /// Provider that authenticates with a bearer API key and POSTs OpenAI-shaped
 /// chat completions to a configurable base URL.
+///
+/// `base_url` is the host root (e.g. `https://api.openai.com`). The provider
+/// appends `/v1/chat/completions` and `/v1/models` for the standard OpenAI
+/// path. Providers with a non-standard version path (GLM uses /api/paas/v4,
+/// Kimi uses /v1) override via `chat_path` / `models_path`.
 pub struct OpenAiCompatibleProvider {
     name: String,
     base_url: String,
+    chat_path: String,
+    models_path: String,
     client: reqwest::Client,
 }
 
 impl OpenAiCompatibleProvider {
+    /// Standard OpenAI layout: {base}/v1/chat/completions, {base}/v1/models.
     pub fn new(name: &str, base_url: &str) -> Self {
+        Self::with_paths(name, base_url, "/v1/chat/completions", "/v1/models")
+    }
+
+    /// Custom endpoint paths for providers that don't use the standard /v1 layout.
+    pub fn with_paths(name: &str, base_url: &str, chat_path: &str, models_path: &str) -> Self {
         Self {
             name: name.to_string(),
             base_url: base_url.trim_end_matches('/').to_string(),
+            chat_path: chat_path.to_string(),
+            models_path: models_path.to_string(),
             client: reqwest::Client::new(),
         }
     }
@@ -100,7 +125,7 @@ impl Provider for OpenAiCompatibleProvider {
             }).collect::<Vec<_>>(),
         });
 
-        let url = format!("{}/v1/chat/completions", self.base_url);
+        let url = format!("{}{}", self.base_url, self.chat_path);
         let resp = self
             .client
             .post(&url)
@@ -126,5 +151,49 @@ impl Provider for OpenAiCompatibleProvider {
             .to_string();
 
         Ok(CompletionResponse { text })
+    }
+
+    /// Fetch the model list live from the provider's models endpoint.
+    /// No hardcoded fallback — if the provider can't tell us, the user types
+    /// the model name manually.
+    async fn list_models(
+        &self,
+        secret: &dyn SecretStore,
+    ) -> Result<Vec<String>, ProviderError> {
+        let key = secret
+            .get(&self.name)
+            .await?
+            .ok_or_else(|| ProviderError::NotConfigured(self.name.clone()))?;
+
+        let url = format!("{}{}", self.base_url, self.models_path);
+        let resp = self
+            .client
+            .get(&url)
+            .bearer_auth(&key)
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(ProviderError::Upstream(format!("HTTP {status}: {text}")));
+        }
+
+        let parsed: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| ProviderError::Malformed(e.to_string()))?;
+
+        // OpenAI-compatible shape: { "data": [ { "id": "gpt-4o" }, ... ] }
+        let models: Vec<String> = parsed["data"]
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|m| m["id"].as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        Ok(models)
     }
 }

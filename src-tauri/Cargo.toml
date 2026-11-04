@@ -23,6 +23,8 @@ url = "2"
 base64 = "0.22"
 rand = "0.8"
 sha2 = "0.10"
+ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
+opener = { version = "0.8.5", features = ["reveal"] }
 
 [dev-dependencies]
 tempfile = "3"

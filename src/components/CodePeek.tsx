@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CodeHighlight } from "./CodeHighlight";
 
 interface Props {
   componentName: string;
@@ -48,23 +49,7 @@ export function CodePeek({ componentName, initialJsx, onApply, onCancel }: Props
           ✕
         </div>
       </div>
-      <textarea
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        spellCheck={false}
-        style={{
-          flex: 1,
-          background: "transparent",
-          color: "var(--editor-text)",
-          border: "1px solid var(--editor-border)",
-          borderRadius: "var(--radius-sm)",
-          padding: 10,
-          fontFamily: "var(--font-mono)",
-          fontSize: 12,
-          resize: "none",
-          outline: "none",
-        }}
-      />
+      <CodeHighlight value={value} onChange={setValue} language="jsx" />
       {!valid && (
         <div style={{ color: "#f87171", fontSize: 10, marginTop: 6 }}>Invalid JSX: unclosed tag or unknown syntax.</div>
       )}
