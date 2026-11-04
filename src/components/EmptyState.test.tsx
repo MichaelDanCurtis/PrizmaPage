@@ -6,9 +6,12 @@ describe("EmptyState", () => {
   const baseProps = () => ({
     recents: [] as Array<{ path: string; name: string; opened_at: number }>,
     onOpen: vi.fn(),
+    onNew: vi.fn(),
+    onImportMarkdown: vi.fn(),
     onDrop: vi.fn(),
     onOpenRecent: vi.fn(),
     onOpenWelcome: vi.fn(),
+    onOpenSettings: vi.fn(),
   });
 
   it("renders the app mark and primary affordances", () => {
@@ -46,6 +49,13 @@ describe("EmptyState", () => {
     render(<EmptyState {...props} />);
     fireEvent.click(screen.getByRole("button", { name: /open/i }));
     expect(props.onOpen).toHaveBeenCalledOnce();
+  });
+
+  it("calls onNew when New clicked", () => {
+    const props = baseProps();
+    render(<EmptyState {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: /new/i }));
+    expect(props.onNew).toHaveBeenCalledOnce();
   });
 
   it("renders the welcome affordance and calls onOpenWelcome", () => {

@@ -1,0 +1,8 @@
+/* Editor-specific tokens. The dark surface for the code-peek drawer. */
+:root {
+  --editor-bg: #0d1117;
+  --editor-text: #c9d1d9;
+  --editor-text-dim: #64748b;
+  --editor-accent: #7ee787; /* used only for the peek's "editing: <Name>" label */
+  --editor-border: #21262d;
+}

@@ -3,7 +3,122 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>PrizmaPage</title>
+    <!-- Browser mock: runs before any module loads. Patches the Tauri bridge
+         so the UI renders in a plain browser (npm run dev) without Tauri. -->
+    <script>
+      if (!window.__TAURI_INTERNALS__) {
+        const WELCOME = `# Welcome to PrizmaPage
+
+You're looking at a \`.mdxz\` document — a shareable, executable mini-app.
+
+## What makes this different from a PDF
+
+A PDF is a frozen picture of a document. A \`.mdxz\` file is a *running program*.
+
+## The thin viewer
+
+Notice what you *don't* see: no toolbar, no menus, no chrome.
+
+## What's next
+
+- **Editor mode** — write MDX directly
+- **AI authoring** — ask the AI to build components
+- **Sharing** — package a document and send it
+
+This is layer one.
+`;
+
+        window.__TAURI_INTERNALS__ = {
+          invoke: function(cmd, args) {
+            console.log('[mock] invoke:', cmd, args);
+            switch (cmd) {
+              case 'open_document':
+                return Promise.resolve({
+                  manifest: { version: '0.1.0', origin_domain: 'prizmapage.app', capabilities: [], signature: null },
+                  content_md: WELCOME,
+                  build_main_js: null,
+                });
+              case 'grant_declared_capabilities': return Promise.resolve(undefined);
+              case 'recent_documents': return Promise.resolve([]);
+              case 'add_recent_document': return Promise.resolve(undefined);
+              case 'welcome_document_path': return Promise.resolve('/mock/welcome.mdxz');
+              case 'save_document': return Promise.resolve(undefined);
+              case 'share_document_path': return Promise.resolve(undefined);
+              case 'reveal_document': return Promise.resolve(undefined);
+              case 'copy_document': return Promise.resolve(undefined);
+              case 'vault_list': return Promise.resolve([
+                { name: 'Architecture.mdxz', path: '/mock/vault/Architecture.mdxz', is_folder: false, modified: Math.floor(Date.now()/1000) - 3600 },
+                { name: 'Roadmap.mdxz', path: '/mock/vault/Roadmap.mdxz', is_folder: false, modified: Math.floor(Date.now()/1000) - 7200 },
+                { name: 'Projects', path: '/mock/vault/Projects', is_folder: true, modified: Math.floor(Date.now()/1000) - 100000 },
+                { name: 'Notes.mdxz', path: '/mock/vault/Projects/Notes.mdxz', is_folder: false, modified: Math.floor(Date.now()/1000) - 86400 },
+              ]);
+              case 'vault_create_note': return Promise.resolve((args && args.vaultPath ? args.vaultPath : '/mock/vault') + '/' + ((args && args.title) || 'Untitled') + '.mdxz');
+              case 'vault_rename': return Promise.resolve((args && args.from ? args.from.replace(/[^/]+$/, '') : '/mock/') + (args && args.newName));
+              case 'vault_delete': return Promise.resolve(undefined);
+              case 'vault_file_in': return Promise.resolve((args && args.vaultPath ? args.vaultPath : '/mock/vault') + '/' + (args && args.src ? args.src.split('/').pop() : 'file.mdxz'));
+              case 'vault_search': return Promise.resolve([
+                { path: '/mock/vault/Architecture.mdxz', name: 'Architecture', snippet: '…the [[Roadmap]] covers the vault model…' },
+                { path: '/mock/vault/Roadmap.mdxz', name: 'Roadmap', snippet: '…Q3 goals include the editor workspace…' },
+              ]);
+              case 'open_in_browser': return Promise.resolve(undefined);
+              case 'new_document': return Promise.resolve(args && args.path);
+              case 'signing_verify': return Promise.resolve({ state: 'unsigned' });
+              case 'signing_generate_keypair': return Promise.resolve({ pubkey: 'mock-pubkey', keyid: 'deadbeef' });
+              case 'signing_sign': return Promise.resolve(undefined);
+              case 'render_d2': return Promise.resolve('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><rect width="120" height="40" fill="#eef2ff" rx="6"/><text x="60" y="25" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#4f46e5">D2 (mock)</text></svg>');
+              // Tauri plugin-dialog IPC — the plugin calls invoke('plugin:dialog|save'…)
+              // through this same bridge, so we mock it here for browser dev.
+              case 'plugin:dialog|open': return Promise.resolve('/mock/welcome.mdxz');
+              case 'plugin:dialog|save': return Promise.resolve('/mock/untitled.mdxz');
+              // AI commands — mock returns an empty provider list so the dialog
+              // shows the "no provider configured" state. To exercise the full
+              // generate flow, set window.MOCK_AI_PROVIDER to a provider name
+              // (e.g. in the console: MOCK_AI_PROVIDER='openai') and that
+              // provider will appear as configured.
+              case 'ai_list_providers': return Promise.resolve(['claude-agent-acp', 'claude', 'codex', 'copilot', 'glm', 'kimi', 'ollama', 'openai', 'openrouter']);
+              case 'ai_has_api_key': return Promise.resolve(window.MOCK_AI_PROVIDER === (args && args.provider));
+              case 'ai_list_models': {
+                const prov = args && args.provider;
+                const mockModels = {
+                  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1-preview', 'o1-mini'],
+                  openrouter: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-pro'],
+                  glm: ['glm-4-plus', 'glm-4-flash', 'glm-4-air'],
+                  kimi: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+                  copilot: ['gpt-4o', 'gpt-4o-mini', 'claude-3.5-sonnet'],
+                  codex: ['gpt-4o', 'gpt-4o-mini', 'o1-preview'],
+                  ollama: ['llama3.1', 'mistral', 'qwen2.5'],
+                };
+                return Promise.resolve(mockModels[prov] || ['model-a', 'model-b']);
+              }
+              case 'ai_start_oauth': return Promise.resolve({ user_code: 'MOCK-CODE', verification_uri: 'https://github.com/login/device' });
+              case 'ai_poll_oauth': return Promise.resolve('complete');
+              case 'ai_start_codex_pkce': return Promise.resolve({ url: 'https://platform.openai.com/auth', state: 'mock' });
+              case 'ai_await_codex_callback': return Promise.resolve(undefined);
+              case 'ai_set_acp_binary': return Promise.resolve(undefined);
+              case 'ai_author_component':
+                return Promise.resolve('<Callout type="info">AI-generated content (mock).</Callout>');
+              case 'ai_generate_document':
+                return Promise.resolve('# ' + ((args && args.prompt) || 'Generated').slice(0, 40) + '\n\nThis is a **mock** generated document. It demonstrates the AI panel.\n\n## Highlights\n\n- Whole-doc generation\n- Selection editing\n- Built-in components\n\n<Callout type="info">Mock content from the browser dev environment.</Callout>\n');
+              case 'ai_complete': return Promise.resolve({ text: '' });
+              case 'ai_complete_inline': return Promise.resolve('and that is how it works.');
+              case 'vault_chat': return Promise.resolve('Based on your vault: the notes cover a vault model, wikilinks, and an AI panel. The Roadmap note outlines Q3 goals including the editor workspace.');
+              case 'vault_create_memory': return Promise.resolve('/mock/vault/Memories/memory.mdxz');
+              case 'vault_snapshot': return Promise.resolve('/mock/vault/.versions/snap.mdxz');
+              case 'vault_list_versions': return Promise.resolve([]);
+              case 'vault_restore_version': return Promise.resolve(undefined);
+              default: return Promise.resolve(undefined);
+            }
+          }
+        };
+        window.__TAURI_PLUGIN_DIALOG__ = {
+          open: function() { return Promise.resolve('/mock/welcome.mdxz'); },
+          save: function() { return Promise.resolve('/mock/untitled.mdxz'); }
+        };
+        console.log('[mock] Tauri bridge mocked for browser dev');
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

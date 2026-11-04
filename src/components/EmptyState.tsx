@@ -4,12 +4,15 @@ import type { RecentEntry } from "../lib/recents";
 interface Props {
   recents: RecentEntry[];
   onOpen: () => void;
+  onNew: () => void;
+  onImportMarkdown: () => void;
   onDrop: (path: string) => void;
   onOpenRecent: (path: string) => void;
   onOpenWelcome: () => void;
+  onOpenSettings: () => void;
 }
 
-export function EmptyState({ recents, onOpen, onDrop, onOpenRecent, onOpenWelcome }: Props) {
+export function EmptyState({ recents, onOpen, onNew, onImportMarkdown, onDrop, onOpenRecent, onOpenWelcome, onOpenSettings }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
@@ -65,7 +68,7 @@ export function EmptyState({ recents, onOpen, onDrop, onOpenRecent, onOpenWelcom
       </div>
       <div style={{ display: "flex", gap: 10 }}>
         <button
-          onClick={onOpen}
+          onClick={onNew}
           style={{
             background: "var(--accent)",
             color: "white",
@@ -76,7 +79,35 @@ export function EmptyState({ recents, onOpen, onDrop, onOpenRecent, onOpenWelcom
             cursor: "pointer",
           }}
         >
+          ✨ New
+        </button>
+        <button
+          onClick={onOpen}
+          style={{
+            background: "var(--bg)",
+            color: "var(--text)",
+            padding: "8px 16px",
+            borderRadius: "var(--radius)",
+            font: "500 11px var(--font-sans)",
+            border: "1px solid var(--border)",
+            cursor: "pointer",
+          }}
+        >
           📁 Open…
+        </button>
+        <button
+          onClick={onImportMarkdown}
+          style={{
+            background: "var(--bg)",
+            color: "var(--text)",
+            padding: "8px 16px",
+            borderRadius: "var(--radius)",
+            font: "500 11px var(--font-sans)",
+            border: "1px solid var(--border)",
+            cursor: "pointer",
+          }}
+        >
+          📥 Import .md…
         </button>
         <div style={{ position: "relative" }}>
           <button
@@ -154,6 +185,21 @@ export function EmptyState({ recents, onOpen, onDrop, onOpenRecent, onOpenWelcom
         }}
       >
         First time? Read the welcome document
+      </button>
+      <button
+        onClick={onOpenSettings}
+        style={{
+          marginTop: 8,
+          background: "transparent",
+          border: "none",
+          font: "var(--font-small)",
+          color: "var(--text-muted)",
+          cursor: "pointer",
+          textDecoration: "underline",
+          textUnderlineOffset: "2px",
+        }}
+      >
+        Settings
       </button>
     </div>
   );
