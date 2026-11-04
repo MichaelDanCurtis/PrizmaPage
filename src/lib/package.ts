@@ -1,9 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { Capability } from "./capability";
 
 export interface Manifest {
   version: string;
   origin_domain: string | null;
-  capabilities: unknown[];
+  capabilities: Capability[];
   signature: string | null;
 }
 

@@ -33,6 +33,25 @@ impl Registry {
             "ollama".into(),
             Arc::new(OpenAiCompatibleProvider::new("ollama", "http://localhost:11434")),
         );
+        // GLM (Zhipu) — OpenAI-compatible API, API-key auth.
+        providers.insert(
+            "glm".into(),
+            // GLM (Zhipu) — OpenAI-compatible API, API-key auth.
+            // Uses /api/paas/v4 as the version path (not /v1).
+            Arc::new(OpenAiCompatibleProvider::with_paths(
+                "glm",
+                "https://open.bigmodel.cn",
+                "/api/paas/v4/chat/completions",
+                "/api/paas/v4/models",
+            )),
+        );
+        // Kimi (Moonshot) — OpenAI-compatible API, API-key auth.
+        providers.insert(
+            "kimi".into(),
+            // Kimi (Moonshot) — OpenAI-compatible API, API-key auth.
+            // Uses /v1 as the version path (same as OpenAI).
+            Arc::new(OpenAiCompatibleProvider::new("kimi", "https://api.moonshot.cn")),
+        );
         // OAuth-authenticated providers. Their bearer token is the OAuth access
         // token, stored under the provider name in the SecretStore after the
         // device flow completes (see ai_start_oauth / ai_poll_oauth commands).
@@ -50,6 +69,10 @@ impl Registry {
             "claude".into(),
             Arc::new(crate::acp_provider::AcpProvider::claude_code()),
         );
+        // Alias so the frontend's "claude-agent-acp" name resolves too.
+        if let Some(claude) = providers.get("claude").cloned() {
+            providers.insert("claude-agent-acp".into(), claude);
+        }
         Self {
             providers: RwLock::new(providers),
         }
@@ -76,6 +99,23 @@ impl Registry {
             Arc::new(OpenAiCompatibleProvider::new("ollama", "http://localhost:11434")),
         );
         providers.insert(
+            "glm".into(),
+            // GLM (Zhipu) — OpenAI-compatible API, API-key auth.
+            // Uses /api/paas/v4 as the version path (not /v1).
+            Arc::new(OpenAiCompatibleProvider::with_paths(
+                "glm",
+                "https://open.bigmodel.cn",
+                "/api/paas/v4/chat/completions",
+                "/api/paas/v4/models",
+            )),
+        );
+        providers.insert(
+            "kimi".into(),
+            // Kimi (Moonshot) — OpenAI-compatible API, API-key auth.
+            // Uses /v1 as the version path (same as OpenAI).
+            Arc::new(OpenAiCompatibleProvider::new("kimi", "https://api.moonshot.cn")),
+        );
+        providers.insert(
             "copilot".into(),
             Arc::new(crate::oauth_providers::OAuthProvider::copilot()),
         );
@@ -84,6 +124,10 @@ impl Registry {
             Arc::new(crate::oauth_providers::OAuthProvider::codex()),
         );
         providers.insert("claude".into(), acp as Arc<dyn Provider>);
+        // Alias so the frontend's "claude-agent-acp" name resolves too.
+        if let Some(claude) = providers.get("claude").cloned() {
+            providers.insert("claude-agent-acp".into(), claude);
+        }
         Self {
             providers: RwLock::new(providers),
         }

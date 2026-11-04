@@ -6,3 +6,52 @@
   --editor-accent: #7ee787; /* used only for the peek's "editing: <Name>" label */
   --editor-border: #21262d;
 }
+
+/* Prism syntax-highlighting token colors, tuned for the dark peek surface.
+ * These class names are emitted by Prism.highlight() in CodeHighlight.tsx. */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #6a9955;
+}
+
+.token.punctuation {
+  color: #c9d1d9;
+}
+
+.token.tag,
+.token.attr-name {
+  color: #7ee787;
+}
+
+.token.attr-value,
+.token.string,
+.token.char {
+  color: #a5d6ff;
+}
+
+.token.keyword,
+.token.boolean,
+.token.constant {
+  color: #ff7b72;
+}
+
+.token.function,
+.token.class-name {
+  color: #d2a8ff;
+}
+
+.token.number {
+  color: #79c0ff;
+}
+
+.token.operator,
+.token.property {
+  color: #79c0ff;
+}
+
+.token.regex,
+.token.important {
+  color: #ffa657;
+}

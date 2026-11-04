@@ -14,8 +14,10 @@ describe("DocumentCanvas", () => {
     await waitFor(() => expect(screen.getByText("Rendered Title")).toBeInTheDocument());
   });
 
-  it("renders the prose text when build_main_js is null (prose-only doc)", () => {
+  it("compiles and renders prose when build_main_js is null (prose-only doc)", async () => {
+    // No precompiled build → the canvas compiles layer 1 on the fly, so
+    // "# Just prose" becomes a real <h1> heading, not a <pre> dump.
     render(<DocumentCanvas compiled={null} contentMd="# Just prose" zoomPct={100} />);
-    expect(screen.getByText("# Just prose")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Just prose").tagName).toBe("H1"));
   });
 });

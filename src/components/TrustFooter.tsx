@@ -1,10 +1,24 @@
+import type { VerifyResult } from "../lib/signing";
+
 interface Props {
   filename: string;
-  signatureDomain: string | null;
+  originDomain: string | null;
+  verifyResult: VerifyResult | null;
 }
 
-export function TrustFooter({ filename, signatureDomain }: Props) {
-  const status = signatureDomain ? `signed: ${signatureDomain} ✓` : "unsigned";
+/// The faint footer in the viewer showing filename + signature status.
+/// verifyResult drives the signature indicator:
+///   null      → (still loading) show nothing signature-specific
+///   unsigned  → "unsigned"
+///   valid     → "✓ signed (keyid)"
+///   invalid   → "✗ invalid signature"
+export function TrustFooter({ filename, originDomain, verifyResult }: Props) {
+  let sigStatus = "unsigned";
+  if (verifyResult?.state === "valid") sigStatus = `✓ signed (${verifyResult.keyid.slice(0, 8)})`;
+  else if (verifyResult?.state === "invalid") sigStatus = "✗ invalid signature";
+  else if (verifyResult?.state === "unsigned") sigStatus = "unsigned";
+
+  const from = originDomain ? `from ${originDomain}` : "";
   return (
     <div
       style={{
@@ -22,7 +36,7 @@ export function TrustFooter({ filename, signatureDomain }: Props) {
         userSelect: "none",
       }}
     >
-      {filename} · {status}
+      {filename}{from ? ` · ${from}` : ""} · {sigStatus}
     </div>
   );
 }
